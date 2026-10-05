@@ -428,7 +428,7 @@
     for (let r = 1; r <= 10; r++) {
       const chip = document.createElement("div");
       chip.className = "rarity-chip"; chip.dataset.r = r; chip.textContent = String(r);
-      chip.style.color = RARITY_COLORS[r - 1];
+      chip.style.background = RARITY_COLORS[r - 1];
       chip.addEventListener("click", () => {
         if (filters.rarity.has(r)) filters.rarity.delete(r); else filters.rarity.add(r);
         chip.classList.toggle("off", !filters.rarity.has(r));

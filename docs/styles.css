@@ -93,6 +93,9 @@ body{
   border:1px solid var(--line);border-radius:5px;text-align:center;font-size:11px;padding:3px 0;cursor:pointer;
   background:#ffffff10;
 }
+/* Filled with the rarity's own colour (set in app.js); white text with the dark outline so it
+   stays readable on the light fills (Rare 1 white, Rare 3 yellow). */
+.rarity-chip{color:#fff;text-shadow:var(--text-outline);border-color:#0006}
 .rarity-chip.off{opacity:.35}
 .rarity-chip:hover{filter:brightness(1.3)}
 
