@@ -1,0 +1,20 @@
+*.log
+Thumbs.db
+.DS_Store
+__pycache__/
+
+# Game dumps / extracted game files — never redistribute these. Keep the extract outside the
+# repo; only the generated files in docs/data/ and docs/assets/icons/ are committed.
+*.3ds
+*.cci
+*.cia
+*.arc
+*.tex
+*.gmd
+*.bin
+romfs/
+exefs/
+arcx/
+
+# Visual Studio local IDE state
+.vs/

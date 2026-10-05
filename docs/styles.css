@@ -1,0 +1,484 @@
+/* MHFU game font (falls back to sans-serif for glyphs it lacks) */
+@font-face{
+  font-family:'MHFU';
+  src:url('fonts/mhfu_font.ttf') format('truetype');
+  font-display:swap;
+}
+/* Theme variables set at runtime from the chosen color (see app.js). */
+:root{
+  --bg:#3e3e3e; --bg1:#000; --grid-bg:#141018; --content-bg:#0e0d11; --panel-bg:#141418; --bg2:#333; --hover:#2f2f2f; --accent:#7a7a7a; --accent-hover:#9a9a9a;
+  --text:#f3f3f3; --text-dim:#fff; --line:#ffffff1f; --card:#ffffff0d;
+  --titlebar-overlay:rgba(0,0,0,0.18);
+  /* 8-point dark outline: keeps sidebar text readable over the panel textures */
+  --text-outline:-1px -1px 0 rgba(0,0,0,.85),1px -1px 0 rgba(0,0,0,.85),-1px 1px 0 rgba(0,0,0,.85),1px 1px 0 rgba(0,0,0,.85),-1px 0 0 rgba(0,0,0,.85),1px 0 0 rgba(0,0,0,.85),0 -1px 0 rgba(0,0,0,.85),0 1px 0 rgba(0,0,0,.85);
+}
+*{box-sizing:border-box;scrollbar-color:var(--accent) var(--bg2);scrollbar-width:thin}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--accent);border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:var(--accent-hover)}
+input,select,button,textarea{font-family:inherit}
+html,body{margin:0;height:100%;overflow:hidden}
+body{
+  font-family:'MHFU',"Segoe UI",system-ui,sans-serif;
+  background:var(--bg); color:var(--text); font-size:14px;
+  -webkit-user-select:none; user-select:none;
+}
+#app{display:flex;flex-direction:column;height:100vh}
+.hidden{display:none !important}
+
+/* Title bar */
+.titlebar{display:flex;align-items:center;gap:8px;padding:8px 14px}
+.titlebar-header{
+  background-image:
+    linear-gradient(color-mix(in srgb,var(--accent) 90%,transparent),color-mix(in srgb,var(--accent) 90%,transparent)),
+    url('assets/titlebar-background.png');
+  background-size:auto 100%;background-position:left center;background-repeat:repeat;
+}
+.title-icon{width:30px;height:30px;object-fit:contain;image-rendering:auto}
+.titlebar h1{font-size:15px;font-weight:600;margin:0}
+.progress-pill{
+  margin-left:auto;background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:10px;
+  padding:5px 12px;font-size:13px;white-space:nowrap;
+}
+.dirty-dot{color:#ffd24a;font-size:11px;vertical-align:middle}
+.icon-btn{background:transparent;border:none;color:var(--text);font-size:18px;cursor:pointer;padding:6px 9px;border-radius:6px;line-height:1}
+.icon-btn:hover{background:#ffffff1a}
+
+/* Layout */
+.layout{display:flex;flex:1;min-height:0}
+.sidebar{
+  width:300px;flex-shrink:0;padding:12px;overflow-y:auto;scrollbar-gutter:stable;
+  display:flex;flex-direction:column;gap:10px;
+  background-image:
+    linear-gradient(color-mix(in srgb,var(--accent) 90%,transparent),color-mix(in srgb,var(--accent) 90%,transparent)),
+    url('assets/sidebar-background-texture1.png');
+  background-size:auto 100%;background-position:left center;background-repeat:repeat;
+}
+.content{flex:1;min-width:0;overflow:hidden;background-color:var(--content-bg);
+  background-image:
+    linear-gradient(color-mix(in srgb,var(--content-bg) 84%,transparent),color-mix(in srgb,var(--content-bg) 84%,transparent)),
+    url('assets/rockyTextureDark.png');
+  background-repeat:repeat;background-size:auto,200px 200px}
+.content-inner{display:flex;height:100%;min-width:0}
+.grid-column{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;padding:16px 16px 0}
+
+/* Buttons */
+.btn{background:#ffffff14;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px 14px;cursor:pointer;font-size:14px}
+.btn:hover{background:#ffffff24}
+.btn.tiny{padding:5px 10px;font-size:12px;background-image:
+    linear-gradient(color-mix(in srgb,var(--bg2) 80%,transparent),color-mix(in srgb,var(--bg2) 80%,transparent)),
+    url('assets/banner-background.png');background-position:right}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* Search + filters */
+.search-input{
+  width:100%;background:var(--bg2);color:var(--text);border:1px solid var(--line);
+  border-radius:7px;padding:8px 10px;font-size:13px;
+}
+.search-input::placeholder{color:rgba(255,255,255,.55)}
+.search-all{font-size:12px;margin-top:-4px}
+.chk{display:flex;align-items:center;gap:8px;padding:2px 0;cursor:pointer;line-height:1.3}
+.chk input{accent-color:var(--accent);width:15px;height:15px;cursor:pointer;flex-shrink:0}
+.chk:hover{color:var(--accent-hover)}
+.chk:has(input:disabled){opacity:.4;cursor:default}
+.chk:has(input:disabled):hover{color:inherit}
+.chk input:disabled{cursor:default}
+.filter-group{margin-bottom:10px}
+.filter-group:last-child{margin-bottom:0}
+.filter-label{font-size:11px;text-transform:uppercase;letter-spacing:.5px;opacity:.7;margin-bottom:4px}
+.mini-select{width:100%;background:var(--bg2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:13px}
+.rarity-filters{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
+.rarity-chip{
+  border:1px solid var(--line);border-radius:5px;text-align:center;font-size:11px;padding:3px 0;cursor:pointer;
+  background:#ffffff10;
+}
+.rarity-chip.off{opacity:.35}
+.rarity-chip:hover{filter:brightness(1.3)}
+
+/* Collapsible panels */
+.panel{border:1px solid var(--line);border-radius:8px;overflow:clip;background:var(--bg2);
+  text-shadow:var(--text-outline)}
+.panel-head{
+  width:100%;text-align:left;background:transparent;border:none;color:var(--text);
+  /* left padding clears the banner texture's dark vertical band, which renders
+     out to ~13.5px at this header height — 14px put the text right on it */
+  padding:9px 14px 9px 20px;font-size:14px;font-weight:600;cursor:pointer;
+  text-shadow:var(--text-outline);
+  display:flex;justify-content:space-between;align-items:center;
+  background-image:
+    linear-gradient(color-mix(in srgb,var(--bg2) 80%,transparent),color-mix(in srgb,var(--bg2) 80%,transparent)),
+    url('assets/banner-background.png');
+  background-size:auto 100%;background-position:left center;background-repeat:repeat;
+}
+.panel-head:hover{filter:brightness(1.15)}
+.chev{transition:transform .15s;font-size:12px}
+.panel[data-open="true"] .chev{transform:rotate(180deg)}
+.panel-body{display:none;padding:10px 12px;flex-direction:column;
+  background-image:
+    linear-gradient(color-mix(in srgb,var(--bg1) 60%,transparent),color-mix(in srgb,var(--bg1) 60%,transparent)),
+    url('assets/panel-body-bg.png');
+  background-size:contain 100%;background-position:left center;background-repeat:repeat;
+}
+.panel[data-open="true"] .panel-body{display:flex}
+.panel-body .hint{font-size:11px;opacity:.7;line-height:1.4;margin:2px 0 8px}
+
+/* Category tree */
+.cat-tree{display:flex;flex-direction:column;gap:6px}
+.cat-section{border:1px solid var(--line);border-radius:8px;overflow:clip;background:var(--bg2);
+  /* dark 8-point outline keeps the tier-coloured category text readable on any background */
+  text-shadow:var(--text-outline)}
+.cat-section-head{
+  width:100%;text-align:left;border:none;color:var(--text);cursor:pointer;
+  padding:9px 14px 9px 20px;font-size:14px;font-weight:700;display:flex;justify-content:space-between;align-items:center;
+  text-shadow:var(--text-outline);
+  background-image:
+    linear-gradient(color-mix(in srgb,var(--bg2) 80%,transparent),color-mix(in srgb,var(--bg2) 80%,transparent)),
+    url('assets/banner-background.png');
+  background-size:auto 100%;background-position:left center;background-repeat:repeat;
+}
+.cat-section-head:hover{filter:brightness(1.15)}
+.cat-section-body{display:none;flex-direction:column;padding:4px;
+  background-image:
+    linear-gradient(color-mix(in srgb,var(--bg1) 60%,transparent),color-mix(in srgb,var(--bg1) 60%,transparent)),
+    url('assets/panel-body-bg.png');
+  background-size:contain 100%;background-position:left center;background-repeat:repeat;
+}
+.cat-section[data-open="true"] .cat-section-body{display:flex}
+.cat-row{
+  display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:13px;
+}
+.cat-row:hover{background:#ffffff12}
+.cat-row.active{background:color-mix(in srgb,var(--accent) 55%,transparent)}
+.cat-row img{width:20px;height:20px;object-fit:contain;flex-shrink:0}
+.cat-row .cat-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color .25s;padding-left:2px}
+.cat-row .cat-frac{font-size:11px;opacity:.75;font-variant-numeric:tabular-nums}
+.cat-row.complete .cat-frac{color:#7fdc7f;opacity:1}
+
+/* Category header (content) */
+.cat-header{flex-shrink:0;margin-bottom:10px}
+.cat-header-top{display:flex;align-items:center;gap:10px}
+.view-toggle{margin-left:auto;display:flex;gap:2px;background:#ffffff10;border:1px solid var(--line);border-radius:7px;padding:2px}
+.view-toggle button{background:transparent;border:none;color:var(--text);cursor:pointer;font-size:15px;line-height:1;padding:4px 9px;border-radius:5px}
+.view-toggle button:hover{background:#ffffff14}
+.view-toggle button.active{background:var(--accent)}
+.cat-header h2{margin:0;font-size:20px}
+.cat-count{font-size:13px;opacity:.8}
+.progress-bar{height:7px;background:#ffffff17;border-radius:4px;margin-top:8px;overflow:hidden}
+.progress-fill{height:100%;width:0;background:var(--accent-hover);transition:width .2s}
+
+/* Box grid (adapted from mhgu-editor) */
+.box-grid{
+  flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));
+  /* Fixed row height: aspect-ratio on the cells does NOT reserve grid-track
+     height, so auto rows collapse and cells overlap. A definite row height
+     keeps every cell square-ish and the grid reflows cleanly on resize. */
+  grid-auto-rows:54px;
+  gap:4px;padding:4px 8px 16px 0;align-content:start;
+}
+.grid-empty{padding:30px;text-align:center;opacity:.6}
+/* List view (same #grid container, different layout) */
+#grid.view-list{display:flex;flex-direction:column;grid-auto-rows:initial;gap:2px}
+.list-row{
+  display:flex;align-items:center;gap:10px;padding:5px 8px;border-radius:6px;cursor:pointer;position:relative;
+  background:var(--grid-bg);border:1px solid #2a2a30;
+}
+.list-row:hover{border-color:var(--accent-hover)}
+.list-row.selected{border-color:#fff;box-shadow:inset 0 0 0 1px #fff}
+.list-icon{width:34px;height:34px;object-fit:contain;flex-shrink:0}
+.list-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.list-rar{font-size:12px;opacity:.65;font-variant-numeric:tabular-nums;flex-shrink:0}
+.list-row:not(.owned) .list-icon{filter:grayscale(.7) brightness(.7);opacity:.5}
+.list-row:not(.owned) .list-name{opacity:.55}
+.list-row .cell-check{position:static;font-size:13px;text-shadow:none;color:#7fffa8;flex-shrink:0}
+.list-row .cell-check.max{color:#ff2b2b}
+/* Materials view (same #grid container) */
+#grid.view-materials{display:flex;flex-direction:column;grid-auto-rows:initial;gap:6px}
+.mat-view-note{font-size:12px;opacity:.8;padding:8px 11px;margin-bottom:2px;border:1px dashed var(--line);border-radius:7px;background:var(--grid-bg)}
+.mat-view-note b{opacity:1}
+.mat-view-row{background:var(--grid-bg);border:1px solid #2a2a30;border-radius:7px;padding:8px 10px;cursor:pointer}
+.mat-view-row:hover{border-color:var(--accent-hover)}
+.mat-view-row.selected{border-color:#fff;box-shadow:inset 0 0 0 1px #fff}
+.mat-view-head{display:flex;align-items:center;gap:9px;margin-bottom:6px}
+.mat-view-head .list-name{font-weight:600}
+.mat-view-row.complete{opacity:.5}
+.mat-view-row.complete .mat-view-head{margin-bottom:0}
+.mat-complete{display:inline-block;font-size:11px;color:#7fdc7f;border:1px solid #7fdc7f55;border-radius:6px;padding:1px 8px}
+.mat-view-body .mat-list{padding-left:27px}
+.box-cell{
+  position:relative;height:100%;border-radius:5px;cursor:pointer;
+  background:var(--grid-bg);border:1px solid #2a2a30;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+}
+.box-cell::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:0}
+.box-cell .cell-icon{width:84%;height:84%;object-fit:contain;position:relative;z-index:1;transition:filter .12s,opacity .12s}
+.box-cell.owned::after{opacity:1}
+.box-cell:not(.owned) .cell-icon{filter:grayscale(.75) brightness(.7);opacity:.5}
+.box-cell:hover{border-color:var(--accent-hover)}
+.box-cell.selected{border-color:#fff;box-shadow:inset 0 0 0 1px #fff}
+.cell-check{
+  position:absolute;top:1px;right:2px;z-index:2;font-size:11px;line-height:1;color:#7fffa8;
+  text-shadow:0 0 2px #000,0 0 2px #000;
+}
+.cell-check.max{color:#ff2b2b;font-weight:700;font-size:10px;text-shadow:0 0 2px #000,0 0 3px #000}
+/* Rarity fill overlays: injected at runtime from the game's own Rare 1-10 colours (app.js). */
+
+/* Detail panel */
+.detail-panel{
+  flex:0 0 340px;width:340px;overflow-y:auto;border-left:1px solid var(--line);
+  background-color:var(--panel-bg);
+  background-image:
+    linear-gradient(color-mix(in srgb,var(--panel-bg) 90%,transparent),color-mix(in srgb,var(--panel-bg) 90%,transparent)),
+    url('assets/rockyTextureDark2.png');
+  background-repeat:repeat;background-size:auto,200px 200px;
+  padding:18px 18px 24px;
+}
+.detail-empty{opacity:.5;text-align:center;margin-top:40px}
+.detail-head{display:flex;gap:12px;align-items:flex-start;margin-bottom:14px}
+.detail-icon{width:52px;height:52px;object-fit:contain;flex-shrink:0}
+.detail-title{font-size:16px;font-weight:700;line-height:1.25}
+/* Gender restriction. Only shown when a piece is actually restricted — most
+   armor is wearable by either, and a pill on 4543 of 5607 entries would be noise. */
+.gender-pill{
+  display:inline-block;vertical-align:middle;margin-left:6px;
+  padding:1px 7px;border-radius:9px;
+  font-size:10px;line-height:1.5;font-weight:600;letter-spacing:.02em;
+  white-space:nowrap
+}
+.gender-pill.g0{background:#12365e;color:#8fc6ff;border:1px solid #2b6096}
+.gender-pill.g1{background:#5a1830;color:#ff9ec0;border:1px solid #94304f}
+.list-name .gender-pill{font-size:9px;padding:0 6px}
+
+.detail-sub{font-size:12px;opacity:.7;margin-top:3px}
+.detail-owned-btn{
+  width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);cursor:pointer;
+  font-size:14px;font-weight:600;margin-bottom:16px;background:#ffffff12;color:var(--text);
+}
+.detail-owned-btn.is-owned{background:#2f7a3f;border-color:#3c9a50;color:#fff}
+.detail-owned-btn:hover{filter:brightness(1.12)}
+.detail-section-title{font-size:11px;text-transform:uppercase;letter-spacing:.5px;opacity:.6;margin:14px 0 6px}
+.stat-row{display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:13px;border-bottom:1px solid #ffffff0d}
+.stat-row .k{opacity:.7}
+.stat-row .v{font-variant-numeric:tabular-nums;text-align:right}
+.lvl-hint{font-size:11px;opacity:.6;margin:2px 0 6px}
+.stage-lv{font-size:9px;opacity:.55;vertical-align:super;margin-left:2px}
+.lvl-rename td{font-size:11px;opacity:.7;font-style:italic;padding-top:5px;color:var(--accent-hover)}
+.lvl-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+.lvl-table th{text-align:left;opacity:.6;font-weight:600;padding:2px 6px 4px 0;font-size:11px}
+.lvl-table td{padding:3px 6px 3px 0;vertical-align:middle;border-top:1px solid #ffffff0d}
+.lvl-table th.lvl-own,.lvl-table td.lvl-own{width:14px;padding-right:4px;color:#7fffa8;text-align:center}
+.lvl-table tbody tr.lvl-row{cursor:pointer}
+.lvl-table tbody tr.lvl-row:hover td{background:#ffffff10}
+.lvl-table tbody tr.lvl-row.selected td{background:color-mix(in srgb,var(--accent) 42%,transparent)}
+.lvl-table tbody tr.lvl-row.selected .lvl-own::after{content:"✓"}
+.sharp-bar{display:flex;height:8px;border-radius:2px;overflow:hidden;min-width:70px;background:#000}
+.sharp-seg{height:100%}
+.sharp-toggle{display:flex;gap:4px;margin:6px 0}
+.sharp-toggle button{font-size:11px;padding:2px 8px;border-radius:5px;border:1px solid var(--line);background:#ffffff10;color:var(--text);cursor:pointer}
+.sharp-toggle button.active{background:var(--accent);border-color:var(--accent-hover)}
+.chip-list{display:flex;flex-wrap:wrap;gap:4px}
+.chip{background:#ffffff12;border:1px solid var(--line);border-radius:6px;padding:2px 8px;font-size:12px}
+.res-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;text-align:center;font-size:12px}
+.res-grid .res-name{opacity:.6;font-size:10px}
+.res-grid .res-val{font-variant-numeric:tabular-nums}
+.detail-note{opacity:.55;font-size:12px;font-style:italic}
+/* Crafting materials */
+.mat-tabs{display:flex;gap:4px;margin:2px 0 8px}
+.mat-tab{flex:1;font-size:11px;padding:5px 6px;border-radius:6px;border:1px solid var(--line);background:#ffffff0d;color:var(--text);cursor:pointer;line-height:1.2}
+.mat-tab.active{background:var(--accent);border-color:var(--accent-hover)}
+.mat-tab:hover{filter:brightness(1.15)}
+.mat-step{font-size:11px;opacity:.7;margin-bottom:5px}
+.mat-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
+.mat-list li{font-size:12.5px;display:flex;gap:6px;align-items:baseline;padding:2px 0;border-bottom:1px solid #ffffff0d}
+.mat-q{color:var(--accent-hover);font-variant-numeric:tabular-nums;font-weight:600;min-width:26px}
+
+/* Modals */
+.modal{position:fixed;inset:0;background:#000000a8;display:flex;align-items:center;justify-content:center;z-index:20}
+.modal-card{background:var(--bg2);border:1px solid var(--line);border-radius:10px;
+  padding:20px;max-width:560px;width:100%;max-height:82vh;overflow-y:auto}
+.modal-card h2{margin:0 0 16px;font-size:18px}
+.modal-card p{margin:0 0 10px;line-height:1.45}
+.modal-card a{color:color-mix(in srgb, hsl(from var(--accent) calc(h + 180) 75% 60%) 50%, var(--text))}
+.modal-card .muted{color:var(--text-dim);font-size:13px;opacity:.75}
+.row{display:flex;align-items:center}
+.row.gap{gap:8px}.row.end{justify-content:flex-end}
+/* Settings dialog */
+.set-section{margin-bottom:18px}
+.set-title{font-size:11px;text-transform:uppercase;letter-spacing:.6px;opacity:.6;margin-bottom:8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+.set-row{display:flex;align-items:flex-start;gap:12px;padding:7px 0}
+.set-label{flex:1;min-width:0;font-size:13px;line-height:1.3}
+.set-hint{display:block;font-size:11px;opacity:.6;line-height:1.35;margin-top:2px}
+.toggle{
+  flex-shrink:0;width:38px;height:21px;padding:0;margin-top:1px;position:relative;cursor:pointer;
+  border:1px solid var(--line);border-radius:11px;background:#ffffff14;transition:background .18s,border-color .18s;
+}
+.toggle::after{
+  content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;
+  background:#b9b9b9;transition:transform .18s,background .18s;
+}
+.toggle[aria-checked="true"]{background:var(--accent-hover);border-color:var(--accent-hover)}
+.toggle[aria-checked="true"]::after{transform:translateX(17px);background:#fff}
+.toggle:hover{filter:brightness(1.15)}
+.set-section .btn.tiny{margin-top:6px}
+.swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:15px}
+.swatch{aspect-ratio:1;border-radius:8px;border:2px solid transparent;cursor:pointer;position:relative;overflow:hidden}
+.swatch.sel{border-color:#fff}
+.swatch-icon{position:absolute;top:7%;left:50%;transform:translateX(-50%);width:60%;pointer-events:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.45))}
+.swatch span{position:absolute;bottom:0;left:0;right:0;text-align:center;font-size:10px;line-height:1.6;color:#fff;background:rgba(0,0,0,.45)}
+
+/* Restore banner + toast */
+.restore-banner{
+  position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:30;
+  background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;
+  display:flex;align-items:center;gap:10px;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.5);
+}
+.toast{
+  position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:40;
+  background:#222;border:1px solid var(--line);border-radius:8px;padding:9px 16px;font-size:13px;
+  box-shadow:0 4px 20px rgba(0,0,0,.5);transition:opacity .3s;
+}
+
+/* Responsive */
+@media (max-width:820px){
+  .content-inner{flex-direction:column;overflow-y:auto}
+  .grid-column{height:auto;padding:12px}
+  .box-grid{max-height:none;overflow:visible}
+  .detail-panel{flex:none;width:auto;border-left:none;border-top:1px solid var(--line)}
+}
+@media (max-width:640px){
+  .layout{flex-direction:column}
+  .sidebar{width:auto;max-height:44vh}
+  .titlebar{flex-wrap:wrap}
+  .progress-pill{margin-left:0}
+}
+
+/* Totals view — one collapsible block per category (see renderTotalsView) */
+.totals-row .mat-view-head{margin-bottom:0}
+.totals-row.open .mat-view-head{margin-bottom:6px}
+.totals-row:not(.open) .mat-view-body{display:none}
+.totals-chev{margin-left:6px;opacity:.55;font-size:11px;transition:transform .12s}
+.totals-row.open .totals-chev{transform:rotate(180deg);display:inline-block}
+
+/* Other MH3U apps modal */
+/* Shortcuts dialog. Wider than the other cards because every row is a gesture on the
+   left and a sentence on the right, and the gesture must not wrap mid-chord. */
+.help-card{width:min(560px,92vw)}
+.kb-list{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin:0}
+.kb-list dt{font-size:12px;white-space:nowrap;padding-top:1px}
+.kb-list dd{margin:0;font-size:12.5px;line-height:1.4;opacity:.82}
+kbd{display:inline-block;background:var(--bg2);border:1px solid var(--line);
+  border-bottom-width:2px;border-radius:4px;padding:1px 6px;font-family:inherit;
+  font-size:11px;font-weight:600;line-height:1.5;white-space:nowrap}
+@media (max-width:520px){
+  .kb-list{grid-template-columns:1fr;gap:2px}
+  .kb-list dd{margin-bottom:8px}
+}
+/* Crafting routes. A real table: the three questions read across each weapon, and a
+   chain of base weapons stacks inside its cell, each step indented one further than the
+   last so "needs X, which needs Y" reads down and in. The column beside the detail panel
+   can be under 300px, so names, headings and chains all wrap rather than push the Branch
+   column out of view; a weapon name and its level never split from each other. */
+.route-wrap{overflow-x:auto;flex-shrink:0}   /* overflow zeroes its min-height; without this
+                                               the stacked #grid squeezes the table */
+.route-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.route-table th{text-align:left;opacity:.6;font-weight:600;font-size:11px;
+  padding:4px 10px 6px 0;vertical-align:bottom;line-height:1.25}
+.route-table td{padding:6px 10px 6px 0;border-top:1px solid #ffffff0d;vertical-align:top}
+.route-row{cursor:pointer}
+.route-row:hover td{background:#ffffff08}
+.route-row.selected td{background:color-mix(in srgb,var(--accent) 34%,transparent)}
+.route-name{display:flex;align-items:flex-start;gap:6px;flex-wrap:wrap}
+.route-name .list-icon{flex:0 0 auto}
+.route-name .list-name{flex:1 1 90px;min-width:0;white-space:normal;line-height:1.3}
+.route-yes{color:#7fdc7f;font-weight:600}
+.route-no{opacity:.45}
+.route-tag{font-size:10.5px;opacity:.55;flex-basis:100%}
+.route-chain{list-style:none;margin:3px 0 0;padding:0}
+.route-chain li{padding-left:calc(var(--depth,0) * 10px);line-height:1.35;margin-top:3px;
+  display:flex;gap:4px}
+.route-chain li::before{content:"\21B3";opacity:.45;flex:0 0 auto}
+.route-step{display:inline-flex;flex-wrap:wrap;align-items:baseline;column-gap:5px}
+.route-link{background:none;border:none;padding:0;font:inherit;color:inherit;cursor:pointer;text-align:left;
+  text-decoration:underline;text-decoration-color:#ffffff40;text-underline-offset:2px}
+.route-link:hover{text-decoration-color:currentColor}
+.route-lv{font-size:10.5px;opacity:.55;font-variant-numeric:tabular-nums;white-space:nowrap}
+/* The view button's branch glyph sits in a row of text glyphs; block keeps it centred. */
+.view-ico{display:block}
+.app-links{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-direction:column;gap:10px}
+.app-links li{border:1px solid var(--line);border-radius:8px;padding:9px 12px;background:#ffffff08}
+.app-links li.current{opacity:.72}
+.app-links a,.app-name{font-weight:600;font-size:14px}
+.app-here{font-weight:400;font-size:11px;opacity:.7;border:1px solid var(--line);border-radius:6px;padding:1px 7px;margin-left:7px}
+.app-desc{display:block;margin-top:3px;font-size:12px;opacity:.8;line-height:1.4}
+
+/* Weapon stat filters: several selects stacked in one group. .filter-group is a block
+   container, so it must be made flex for `gap` to do anything at all. */
+#weaponStatGroup{display:flex;flex-direction:column;gap:6px}
+#weaponStatGroup .filter-label{margin-bottom:0}
+.filter-hint{font-weight:400;opacity:.6;font-size:10px}
+
+/* Class-specific filters are injected into a bare div, which does not pick up the
+   .filter-group margin — without this the last one sits flush against Rarity. */
+#classFilters{display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
+#classFilters:empty{margin-bottom:0}
+#classFilters .filter-group{margin-bottom:0}
+
+/* ── Checklist ─────────────────────────────────────────────────────────── */
+/* Target star sits top-LEFT so it never collides with .cell-check top-right. */
+.cell-target{position:absolute;top:2px;left:3px;font-size:10px;color:#ffd257;
+  text-shadow:0 0 2px #000,0 0 3px #000;pointer-events:none}
+.list-row .cell-target{position:static;font-size:12px;text-shadow:none;flex-shrink:0}
+.box-cell.targeted,.list-row.targeted{box-shadow:inset 0 0 0 1px #ffd25766}
+.detail-target-btn{width:100%;margin-top:6px;padding:7px 10px;border-radius:7px;cursor:pointer;
+  background:var(--bg2);color:var(--text);border:1px solid var(--line);font-size:13px}
+.detail-target-btn:hover{border-color:var(--accent-hover)}
+.detail-target-btn.is-target{background:#ffd2571f;border-color:#ffd25788;color:#ffd257}
+.chk-summary .mat-view-head .list-name{font-weight:700}
+/* The inventory input is the only editable surface — one per material, in the summary. */
+/* Material lists are repeated numeric rows, so they get aligned columns rather than
+   inline text. Summary and per-target tables share Material / Need / Have / Short. */
+.chk-table{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:auto}
+.chk-table th{text-align:left;opacity:.6;font-weight:600;font-size:11px;
+  padding:2px 8px 4px 0;white-space:nowrap}
+.chk-table td{padding:3px 8px 3px 0;border-top:1px solid #ffffff0d;vertical-align:middle}
+.chk-table th.num,.chk-table td.num{text-align:right;width:1%;white-space:nowrap;
+  font-variant-numeric:tabular-nums;padding-right:0}
+.chk-table th.num:not(:last-child),.chk-table td.num:not(:last-child){padding-right:14px}
+.chk-table tr.done td{opacity:.45}
+/* − 12 + . The buttons sit flush either side of the count so the column still reads as
+   a number, and they hold their width whether the row shows an input or a plain figure. */
+.chk-stepper{display:flex;align-items:center;justify-content:flex-end;gap:4px}
+.chk-step{width:19px;height:19px;flex:0 0 19px;padding:0;line-height:1;
+  background:var(--bg2);color:var(--text);border:1px solid var(--line);border-radius:5px;
+  font-size:13px;font-weight:700;cursor:pointer;opacity:.55;
+  display:flex;align-items:center;justify-content:center;user-select:none}
+.chk-step:hover{opacity:1;border-color:var(--accent-hover)}
+.chk-step:active{background:var(--accent)}
+.chk-alloc{min-width:26px;text-align:right}
+.chk-have{width:48px;background:var(--bg2);color:var(--text);
+  border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:12px;
+  font-variant-numeric:tabular-nums;text-align:right}
+.chk-have:focus{outline:none;border-color:var(--accent-hover)}
+/* The spinners duplicate the − / + buttons and only appear on hover, so they go. */
+.chk-have::-webkit-inner-spin-button,.chk-have::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.chk-have{-moz-appearance:textfield;appearance:textfield}
+.chk-short{color:#ff9a9a}
+.chk-short.ok{color:#7fdc7f}
+
+/* ── MH3U additions ──────────────────────────────────────────────────── */
+/* The equipment icons are the game's own 22 px pixel art (upscaled 2x); keep them crisp. */
+.cell-icon,.list-icon,.detail-icon,.cat-row img{image-rendering:pixelated}
+.modal-card h3{margin:14px 0 6px;font-size:14px}
+.modal-card code{font-size:12px;opacity:.85}
+/* Sharpness drawn to the game's scale: the full bar is 450, so shorter bars read shorter. */
+.sharp-bar-lg{height:12px;margin-top:4px;border:1px solid #ffffff22}
+.note-dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-left:4px;
+  border:1px solid #0008;vertical-align:middle}
+.note-white{background:#f2f2f2}.note-purple{background:#a05ad0}.note-blue{background:#4a7ff0}
+.note-red{background:#e04848}.note-yellow{background:#e8d23a}.note-orange{background:#ef8f2e}
+.note-green{background:#4caf50}.note-sky{background:#7fd6f5}
+.tree-row{font-size:12.5px;padding:3px 0;line-height:1.6}
+.tree-row .k{opacity:.7;margin-right:6px}
+.tree-sep{opacity:.4;margin:0 6px}
+.ammo-table td.num{text-align:right;font-variant-numeric:tabular-nums}

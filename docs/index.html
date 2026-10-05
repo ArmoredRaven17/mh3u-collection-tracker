@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MH3U Collection Tracker</title>
+<link rel="icon" type="image/png" href="assets/icons/icon_armor_chest_r1.png">
+<link rel="stylesheet" href="styles.css?v=1">
+</head>
+<body>
+<div id="app">
+
+  <!-- Title bar -->
+  <header class="titlebar titlebar-header">
+    <img class="title-icon" src="assets/MonsterIcons/MH3U-Question_Mark_Icon.png" alt="">
+    <h1>MH3U Collection Tracker</h1>
+    <span id="overallProgress" class="progress-pill" title="Overall collection progress">0 / 0</span>
+    <button id="saveBtn"   class="btn tiny">Save <span id="dirtyDot" class="dirty-dot hidden">●</span></button>
+    <button id="saveAsBtn" class="btn tiny">Save As…</button>
+    <button id="openBtn"   class="btn tiny">Open…</button>
+    <input type="file" id="importFile" accept=".json,application/json" class="hidden">
+    <button id="linksBtn" class="icon-btn" title="Other MH3U apps" aria-label="Other MH3U apps">&#128279;</button>
+    <button id="themeBtn" class="icon-btn" title="Settings" aria-label="Settings">&#9881;</button>
+    <button id="helpBtn" class="icon-btn" title="Shortcuts &amp; gestures" aria-label="Shortcuts and gestures">?</button>
+    <button id="aboutBtn" class="icon-btn" title="About / Attributions" aria-label="About">&#9432;</button>
+  </header>
+
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <input type="search" id="searchInput" class="search-input" placeholder="Search equipment…" autocomplete="off">
+      <label class="chk search-all"><input type="checkbox" id="searchAll"><span>Search all categories</span></label>
+
+      <div class="panel filters-panel" data-open="true">
+        <button class="panel-head"><span>Filters</span><span class="chev">▾</span></button>
+        <div class="panel-body">
+          <div class="filter-group">
+            <div class="filter-label">Show</div>
+            <label class="chk"><input type="radio" name="ownedFilter" value="all" checked><span>All</span></label>
+            <label class="chk"><input type="radio" name="ownedFilter" value="owned"><span>Owned</span></label>
+            <label class="chk"><input type="radio" name="ownedFilter" value="missing"><span>Missing</span></label>
+            <label class="chk"><input type="radio" name="ownedFilter" value="maxed"><span>Fully Upgraded</span></label>
+            <label class="chk"><input type="radio" name="ownedFilter" value="partial"><span>Exclude Fully Upgraded</span></label>
+            <label class="chk"><input type="radio" name="ownedFilter" value="target"><span>On checklist</span></label>
+          </div>
+          <div class="filter-group">
+            <div class="filter-label">Sort</div>
+            <select id="sortSelect" class="mini-select">
+              <option value="rarity">Rarity (1 → 10)</option>
+              <option value="tree">Upgrade tree / game order</option>
+              <option value="name">Name</option>
+            </select>
+          </div>
+          <div class="filter-group" id="elementGroup">
+            <div class="filter-label">Element</div>
+            <select id="elementSelect" class="mini-select"></select>
+          </div>
+          <div class="filter-group" id="weaponStatGroup">
+            <div class="filter-label">Weapon stats</div>
+            <select id="affSelect" class="mini-select">
+              <option value="all">Any affinity</option>
+              <option value="pos">Positive affinity</option>
+              <option value="neutral">Neutral affinity</option>
+              <option value="neg">Negative affinity</option>
+            </select>
+            <select id="slotSelect" class="mini-select">
+              <option value="all">Any slots</option>
+              <option value="0">No slot</option>
+              <option value="1">1 slot</option>
+              <option value="2">2 slot</option>
+              <option value="3">3 slot</option>
+            </select>
+            <select id="defSelect" class="mini-select">
+              <option value="all">Any defense</option>
+              <option value="yes">Has defense bonus</option>
+            </select>
+          </div>
+          <div id="classFilters"></div>
+          <div class="filter-group">
+            <div class="filter-label">Rarity</div>
+            <div id="rarityFilters" class="rarity-filters"></div>
+          </div>
+          <div class="filter-group" id="armorTypeGroup">
+            <div class="filter-label">Armor type</div>
+            <label class="chk"><input type="radio" name="armorClassFilter" value="all" checked><span>All</span></label>
+            <label class="chk"><input type="radio" name="armorClassFilter" value="B"><span>Blademaster</span></label>
+            <label class="chk"><input type="radio" name="armorClassFilter" value="G"><span>Gunner</span></label>
+          </div>
+        </div>
+      </div>
+
+      <nav id="categoryTree" class="cat-tree"></nav>
+    </aside>
+
+    <!-- Content -->
+    <main class="content">
+      <div class="content-inner">
+        <div class="grid-column">
+          <div class="cat-header">
+            <div class="cat-header-top">
+              <h2 id="catTitle">—</h2>
+              <span id="catCount" class="cat-count"></span>
+              <div class="view-toggle" id="viewToggle">
+                <button type="button" data-view="grid" title="Grid view" aria-label="Grid view">▦</button>
+                <button type="button" data-view="list" title="List view" aria-label="List view">☰</button>
+                <button type="button" data-view="materials" title="Materials view" aria-label="Materials view">🧾</button>
+                <button type="button" data-view="routes" title="Crafting routes — how each weapon is made" aria-label="Crafting routes view"><svg
+                  class="view-ico" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path fill="none" stroke="currentColor"
+                  stroke-width="1.6" stroke-linecap="round" d="M4 3v10M4 9.5c0-3.2 8-2.3 8-6"/><circle cx="4" cy="13.2" r="1.7"
+                  fill="currentColor"/><circle cx="4" cy="2.8" r="1.7" fill="currentColor"/><circle cx="12" cy="3.5" r="1.7"
+                  fill="currentColor"/></svg></button>
+                <button type="button" data-view="totals" title="Totals view — every category's remaining materials" aria-label="Totals view">&Sigma;</button>
+                <button type="button" data-view="checklist" title="Checklist — materials for the pieces you're building" aria-label="Checklist view">&#9733;</button>
+              </div>
+            </div>
+            <div class="progress-bar"><div id="catProgressFill" class="progress-fill"></div></div>
+          </div>
+          <div id="grid" class="box-grid"></div>
+          <div id="gridEmpty" class="grid-empty hidden">No items match the current filters.</div>
+        </div>
+
+        <aside id="detailPanel" class="detail-panel">
+          <div class="detail-empty">Select an item to see its details.</div>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Shortcuts / gestures dialog -->
+<div id="helpModal" class="modal hidden">
+  <div class="modal-card help-card">
+    <h2>Shortcuts &amp; Gestures</h2>
+    <p class="muted">Almost everything is a click with a modifier held. Every gesture below
+      can be switched off individually in Settings.</p>
+
+    <div class="set-section">
+      <div class="set-title">Marking equipment</div>
+      <dl class="kb-list">
+        <dt><kbd>Click</kbd></dt>
+        <dd>Open a piece and read its details. The first click only inspects &mdash; it changes nothing.</dd>
+        <dt><kbd>Click</kbd> again</dt>
+        <dd>On the piece already open: marks it owned. Armor then rises one upgrade level per click
+          up to its maximum.</dd>
+        <dt><kbd>Ctrl</kbd> / <kbd>&#8984;</kbd> + <kbd>Click</kbd></dt>
+        <dd>Own it, or un-own it. This is the way back out if you marked something by mistake.</dd>
+        <dt><kbd>Alt</kbd> + <kbd>Click</kbd></dt>
+        <dd>Own it at its highest level in one go.</dd>
+        <dt><kbd>Shift</kbd> + <kbd>Click</kbd></dt>
+        <dd>Put it on the checklist, or take it off.</dd>
+      </dl>
+    </div>
+
+    <div class="set-section">
+      <div class="set-title">Moving around the grid or list</div>
+      <dl class="kb-list">
+        <dt><kbd>&larr;</kbd> <kbd>&uarr;</kbd> <kbd>&darr;</kbd> <kbd>&rarr;</kbd> or <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></dt>
+        <dd>Step through the pieces, showing each one as you land on it. Nothing is marked by moving.
+          Not while you are typing in the search box.</dd>
+      </dl>
+    </div>
+
+    <div class="set-section">
+      <div class="set-title">In the detail panel</div>
+      <dl class="kb-list">
+        <dt><kbd>Click</kbd> a level row</dt>
+        <dd>Armor: set the piece to that level. Clicking the level it is already at un-owns it.</dd>
+        <dt><kbd>Click</kbd> a weapon name</dt>
+        <dd>In the upgrade tree, jump to the weapon it upgrades from or into.</dd>
+      </dl>
+    </div>
+
+    <div class="set-section">
+      <div class="set-title">In crafting routes</div>
+      <dl class="kb-list">
+        <dt><kbd>Click</kbd> a row</dt>
+        <dd>Show that weapon in the detail panel. Clicking it again does not mark it here.</dd>
+        <dt><kbd>Click</kbd> a weapon name</dt>
+        <dd>Jump to a base or branch weapon named in a route.</dd>
+      </dl>
+    </div>
+
+    <div class="set-section">
+      <div class="set-title">On the checklist</div>
+      <dl class="kb-list">
+        <dt><kbd>Click</kbd> a row header</dt>
+        <dd>Show or hide that piece's materials. A plain click anywhere else on the checklist
+          deliberately does nothing, so reading a list can't change what you own.</dd>
+        <dt><kbd>&minus;</kbd> <kbd>+</kbd></dt>
+        <dd>Count a material down or up. Hold either one and it repeats.</dd>
+        <dt>Type in a <b>Have</b> box</dt>
+        <dd>Set a count outright. It applies when you press <kbd>Enter</kbd> or leave the field.</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>Shift</kbd> + <kbd>Click</kbd></dt>
+        <dd>Still work here, so you can tick a piece off as built without leaving the list.</dd>
+      </dl>
+    </div>
+
+    <div class="set-section">
+      <div class="set-title">Saving</div>
+      <dl class="kb-list">
+        <dt><kbd>Ctrl</kbd> / <kbd>&#8984;</kbd> + <kbd>S</kbd></dt>
+        <dd>Save to your file. Your collection is also kept in this browser automatically,
+          unless you have turned that off.</dd>
+      </dl>
+    </div>
+
+    <div class="row end"><button id="helpClose" class="btn">Close</button></div>
+  </div>
+</div>
+
+<!-- About / Attributions dialog -->
+<div id="aboutModal" class="modal hidden">
+  <div class="modal-card">
+    <h2>About / Attributions</h2>
+    <p class="muted">An unofficial, non-commercial fan tool for tracking your Monster Hunter 3 Ultimate equipment
+      collection. Not affiliated with, endorsed by, or supported by Capcom.</p>
+
+    <h3>Game content</h3>
+    <p>Monster Hunter 3 Ultimate and all of its names, data tables and icons are &copy; CAPCOM CO., LTD. All rights
+      reserved. Everything here was extracted from a personally owned copy of the game and is shown for reference
+      only; no game files are redistributed.</p>
+
+    <h3>Where the data comes from</h3>
+    <p>Every stat, recipe and upgrade link is read from the game's own executable &mdash; the tables its menus read
+      &mdash; and every name from its English text files. Sharpness, armor defense per level, attack display,
+      rarity and the bowgun labels follow the game's own code. The equipment icons are the game's own, in its
+      own rarity colours. The decode was cross-checked against
+      <a href="https://kiranico.com/en/mh3u" target="_blank" rel="noopener">Kiranico</a> as ground truth; no data is
+      taken from it.</p>
+    <p>Not decoded yet: armor upgrade costs (Armor Spheres) and the names of a few DLC pieces.</p>
+
+    <h3>Development</h3>
+    <p>Built by the author with substantial help from <a href="https://claude.com/claude-code" target="_blank" rel="noopener">Claude Code</a>,
+      Anthropic's AI coding tool. Most of the code, the data-extraction script and this page were written with AI
+      assistance, reviewed and directed by the author.</p>
+
+    <h3>Assets</h3>
+    <p>The theme icons are the game's own monster icons. The UI textures and the MHFU font are shared with the same
+      author's MHGU fan apps.</p>
+    <div class="row end gap">
+      <button id="aboutClose" class="btn">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Other MH3U apps dialog -->
+<div id="linksModal" class="modal hidden">
+  <div class="modal-card">
+    <h2>Other MH3U Apps</h2>
+    <p class="muted">Companion fan tools by the same author. Each opens in a new tab.</p>
+    <ul class="app-links">
+      <li>
+        <a href="https://armoredraven17.github.io/" target="_blank" rel="noopener">Home &mdash; All Apps</a>
+        <span class="app-desc">The home page listing every Monster Hunter app by the same author, MHGU, MHFU and MH3U.</span>
+      </li>
+      <!-- MH3U apps only, in the hub's order (apps.js); this app leaves itself out -->
+      <li>
+        <a href="https://armoredraven17.github.io/mh3u-monster-viewer/" target="_blank" rel="noopener">Monster Viewer</a>
+        <span class="app-desc">Renders every MH3U monster in 3D with its own motion lists, so you can watch what they actually do.</span>
+      </li>
+      <li>
+        <a href="https://armoredraven17.github.io/mh3u-armor-viewer/" target="_blank" rel="noopener">Armor Viewer</a>
+        <span class="app-desc">Renders a hunter in 3D with every MH3U armor piece swappable, so you can mix and match a set.</span>
+      </li>
+    </ul>
+    <div class="row end gap">
+      <button id="linksClose" class="btn">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings dialog -->
+<div id="themeModal" class="modal hidden">
+  <div class="modal-card">
+    <h2>Settings</h2>
+
+    <div class="set-section">
+      <div class="set-title">Storage</div>
+      <div class="set-row">
+        <div class="set-label">Save in this browser
+          <span class="set-hint">Keeps your collection here so it loads automatically. Use Save to a file for backups or another device.</span></div>
+        <button type="button" class="toggle" id="localSaveToggle" role="switch" aria-checked="true" aria-label="Save in this browser"></button>
+      </div>
+      <button id="clearLocalBtn" class="btn tiny">Clear browser save</button>
+    </div>
+
+    <div class="set-section">
+      <div class="set-title">Interaction</div>
+      <div class="set-row">
+        <div class="set-label">Click to mark owned and increase level
+          <span class="set-hint">Clicking an open piece again marks it owned, then (armor) raises its level each click.</span></div>
+        <button type="button" class="toggle" id="clickLevelToggle" role="switch" aria-checked="true" aria-label="Click to mark owned and increase level"></button>
+      </div>
+      <div class="set-row">
+        <div class="set-label">Ctrl + Click to remove
+          <span class="set-hint">Un-owns a piece of equipment.</span></div>
+        <button type="button" class="toggle" id="ctrlRemoveToggle" role="switch" aria-checked="true" aria-label="Ctrl click to remove"></button>
+      </div>
+      <div class="set-row">
+        <div class="set-label">Alt + Click to fully upgrade
+          <span class="set-hint">Marks a piece owned at its max level in one click.</span></div>
+        <button type="button" class="toggle" id="altMaxToggle" role="switch" aria-checked="true" aria-label="Alt click to fully upgrade"></button>
+      </div>
+      <div class="set-row">
+        <div class="set-label">Shift + Click to add to checklist
+          <span class="set-hint">Marks a piece as something you plan to build.</span></div>
+        <button type="button" class="toggle" id="shiftTargetToggle" role="switch" aria-checked="true" aria-label="Shift click to add to checklist"></button>
+      </div>
+      <div class="set-row">
+        <div class="set-label">Spend materials when you build
+          <span class="set-hint">Marking a checklist piece owned takes what it cost out of the counts you have recorded.</span></div>
+        <button type="button" class="toggle" id="spendMatsToggle" role="switch" aria-checked="true" aria-label="Spend materials when you build"></button>
+      </div>
+    </div>
+
+    <div class="set-section">
+      <div class="set-title">Theme</div>
+      <div id="swatches" class="swatches"></div>
+    </div>
+
+    <div class="row end gap">
+      <button id="themeClose" class="btn">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Restore-session banner -->
+<div id="restoreBanner" class="restore-banner hidden">
+  <span>An unsaved collection from your last session was found.</span>
+  <button id="restoreYes" class="btn tiny">Restore</button>
+  <button id="restoreNo" class="btn tiny">Dismiss</button>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast hidden"></div>
+
+<script src="data/catalog.js?v=1"></script>
+<script src="app.js?v=1"></script>
+</body>
+</html>
