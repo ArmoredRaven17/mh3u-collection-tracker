@@ -242,6 +242,12 @@ ARMOR_SLOTS = [  # item type, key, message file; label = the five slot names the
 ARMOR_PTRS = 0xbc0038     # [data manager +0x84]: 0x18-byte records (READ 0x892ffc)
 ARMOR_INFO = 0xbc0050     # [data manager +0x88]: 0x20-byte records (READ 0x89393c)
 DEF_STEP = 0xc40748       # READ 0x8943fc: u16 [curve][tier] defence gained per level
+# Upgrade cost, READ: 0x893070 gives the tier of the NEXT level -- from 0-based level x it compares
+# x + 1 against info +3..+8 and returns the first k with x + 1 <= info[3 + k]. 0x60116c turns the
+# tier into ONE sphere (item 0xee Armor Sphere, 0xef +, 0xf0 Adv, 0xf1 Hrd, 0xf2 Hvy, 0xf4 Tru) and
+# 0x5f7e7c into zenny: trunc(b + a * (info +0xc u32 * 2.0)), (a, b) = float pair at 0xc06da0[tier].
+UPGRADE_SPHERES = [0xee, 0xef, 0xf0, 0xf1, 0xf2, 0xf4]
+UPGRADE_ZENNY = 0xc06da0
 
 
 def armor_levels(base, info):
@@ -252,6 +258,18 @@ def armor_levels(base, info):
     for lv in range(1, top):
         d += steps[sum(1 for x in tiers if x <= lv)]
         out.append(d)
+    return out
+
+
+def armor_upgrades(info):
+    """[(sphere item name, zenny)] for Lv1->2, Lv2->3, ... up to the max level (info +8)."""
+    tiers, top = list(info[3:9]), info[8]
+    price = struct.unpack_from('<I', info, 0xc)[0]
+    out = []
+    for x in range(top - 1):                       # x = current 0-based level
+        tier = next((k for k, t in enumerate(tiers) if x + 1 <= t), 0)
+        a, b = struct.unpack_from('<2f', CODE, UPGRADE_ZENNY - BASE + 8 * tier)
+        out.append((ITEMS[UPGRADE_SPHERES[tier]], int(b + a * (price * 2.0))))
     return out
 
 
@@ -275,8 +293,7 @@ def armor_slot(typ, key, msg):
         rar = r[7] + 1
         stats[str(i)] = {'def': [lv[0], lv[-1]], 'lv': lv, 'res': [s8(x) for x in r[8:13]],
                          'slots': r[0xd], 'sk': skills, 'rar': rar}
-        if i in create:
-            mats_create[i] = create[i]
+        mats_create[i] = {'create': create.get(i), 'up': armor_upgrades(t)}
         entries.append([i, name, rar, len(lv), gender, cls])
     return entries, stats, mats_create
 
@@ -356,7 +373,20 @@ def main():
         entries, stats, create = armor_slot(typ, key, msg)
         catalog['armor'][key] = {'label': label, 'icon': 'armor_' + key, 'entries': entries}
         dump(os.path.join(sd, 'armor_%s.json' % key), {'slot': key, 'byId': stats})
-        dump(os.path.join(md, 'armor_%s.json' % key), materials_file(create, lambda rec, ix: [[ix(n), q] for n, q in rec]))
+        # create[id] = recipe pairs; upgrade[id] = [[sphere index, zenny], ...], entry k = Lv k+1 -> k+2.
+        names, index = [], {}
+        def ix(n):
+            if n not in index:
+                index[n] = len(names)
+                names.append(n)
+            return index[n]
+        mf = {'mats': names, 'create': {}, 'upgrade': {}}
+        for i, rec in sorted(create.items()):
+            if rec['create']:
+                mf['create'][str(i)] = [[ix(n), q] for n, q in rec['create']]
+            if rec['up']:
+                mf['upgrade'][str(i)] = [[ix(n), z] for n, z in rec['up']]
+        dump(os.path.join(md, 'armor_%s.json' % key), mf)
         totals['armor_' + key] = len(entries)
     with open(os.path.join(DOCS, 'data', 'catalog.js'), 'w', encoding='utf-8') as fh:
         fh.write('window.CATALOG = ' + json.dumps(catalog, ensure_ascii=False, separators=(',', ':')) + ';\n')

@@ -11,7 +11,8 @@ armor piece, with an "owned" checkbox, full stats, crafting recipes and the upgr
   Gunner.
 - Click a cell to see stats: attack, affinity, element/status (with Awaken), sharpness (base and
   Sharpness +1), slots, Hunting Horn notes, Gunlance shelling, Switch Axe phials, bow charges, arc
-  shot and coatings, bowgun reload/recoil/deviation and ammo; armor defense per upgrade level,
+  shot and coatings, bowgun reload/recoil/deviation and ammo; armor defense and Armor Sphere +
+  zenny cost per upgrade level,
   resistances and skills.
 - The upgrade tree: what each weapon upgrades from and into, a crafting-routes view, and a
   checklist that costs a build along the tree.
@@ -30,7 +31,7 @@ field's meaning was not obvious it was traced to the game code that reads it; th
 give the addresses. The decode was cross-checked against Kiranico's MH3U database as ground truth
 (97–100% agreement per field; the rest are errors on the site), but no data is taken from it.
 
-Not decoded yet: armor upgrade costs (Armor Spheres) and the names of a few DLC pieces.
+Not decoded yet: the names of a few DLC pieces.
 
 ## Local development
 

@@ -9,7 +9,7 @@
   // Bump whenever docs/data/ is regenerated. The JSON files are fetched at runtime,
   // so without this a browser holding a cached copy runs new code against old data —
   // which fails silently, as wrong numbers rather than an error.
-  const DATA_VERSION = "1";
+  const DATA_VERSION = "2";
   const APP_TITLE = "MH3U Collection Tracker";
   const SAVE_APP = "mh3u-collection-tracker";
   const SAVE_VERSION = 1;
@@ -313,20 +313,24 @@
     if (selectedId === id && current === c) refreshDetailOwned(c, id);
     spendForBuild(c, id, prevLevel).then(() => { if (viewMode === "checklist") renderChecklistView(); });
   }
-  // Building a checklist piece consumes what it cost: the drop in its own remaining cost comes
-  // off the recorded stock. Ownership gained only — un-owning does not refund.
+  // Building a checklist piece consumes what it cost: the drop in its own remaining cost (cost at
+  // the old state minus cost at the new one, measured with the same engine) comes off the recorded
+  // stock — so forging and each armor level-up are both covered. Gains only: un-owning or lowering
+  // a level does not refund.
   async function spendForBuild(c, id, prevLevel) {
     if (prevLevel === undefined || !settings.spendMats || !haveMats.size || !isTargeted(c, id)) return;
-    if (prevLevel !== null) return;   // only creation is costed (3U weapons have no levels; armor upgrades are not decoded)
-    if (!isOwned(c, id)) return;
+    const was = prevLevel === null ? 0 : Math.max(1, prevLevel);
+    if (atLevel(c, id) <= was) return;
     const data = await loadMaterials(c.statsFile);
     if (!data) return;
-    const m = ownedMapOf(c), cur = m.get(id);
-    m.delete(id);
+    const m = ownedMapOf(c), cur = m.has(id) ? m.get(id) : null;
+    const after = targetCost(c, id, data).map;
+    if (prevLevel === null) m.delete(id); else m.set(id, prevLevel);
     const before = targetCost(c, id, data).map;
-    m.set(id, cur);
+    if (cur === null) m.delete(id); else m.set(id, cur);
     let spent = false;
-    for (const [n, used] of before) {
+    for (const [n, need] of before) {
+      const used = need - (after.get(n) || 0);
       const have = haveMats.get(n) || 0;
       if (used <= 0 || !have) continue;
       const left = Math.max(0, have - used);
@@ -651,22 +655,46 @@
     }
     return { map, notes };
   }
+  // Armor upgrades: one sphere per level plus zenny, straight from the game (build_data.py,
+  // 0x893070 / 0x60116c / 0x5f7e7c). upgrade[id][k] = [sphere index, zenny] for Lv k+1 -> k+2.
+  // `from` is the level you are at (1 = freshly forged), `to` the level you want.
+  function armorUpgradeCost(data, id, from, to) {
+    const map = new Map(), steps = (data.upgrade || {})[String(id)] || [];
+    let zenny = 0;
+    for (let k = Math.max(0, from - 1); k < Math.min(steps.length, to - 1); k++) {
+      const n = data.mats[steps[k][0]];
+      map.set(n, (map.get(n) || 0) + 1);
+      zenny += steps[k][1];
+    }
+    return { map, zenny };
+  }
+  // The level an owned piece is at (unset counts as Lv 1), or 0 when not owned.
+  const atLevel = (c, id) => isOwned(c, id) ? Math.max(1, ownedLevel(c, id)) : 0;
+  // Armor still owed to reach `to`: its create recipe when not owned, then every upgrade.
+  function armorCost(c, id, data, to) {
+    const map = new Map();
+    if (!data) return map;
+    const lv = atLevel(c, id);
+    if (!lv) addPairs(map, (data.create || {})[String(id)], data.mats);
+    addMap(map, armorUpgradeCost(data, id, Math.max(1, lv), to).map);
+    return map;
+  }
   function targetCost(c, id, data) {
     if (!data) return { map: new Map(), notes: [] };
     if (c.kind === "w") return weaponBuildCost(data, c, id, new Set(), true);
-    const map = new Map();
-    if (!isOwned(c, id)) addPairs(map, (data.create || {})[String(id)], data.mats);
-    return { map, notes: [] };
+    return { map: armorCost(c, id, data, Math.max(1, maxLevelOf(c, id))), notes: [] };
   }
   // Totals: what is still owed, category by category. A weapon is counted by the step that makes
   // it — the upgrade from its parent when it has one, else its create recipe — so following the
-  // tree from the bottom builds everything once. Armor counts its create recipe.
+  // tree from the bottom builds everything once. Armor counts its create recipe (when not owned)
+  // plus every upgrade from where it is to its max level.
   const totalsPieceCost = (c, it, data) => {
     const sum = new Map();
-    if (!data || isOwned(c, it.id)) return sum;
+    if (!data) return sum;
+    if (c.kind === "a") return armorCost(c, it.id, data, Math.max(1, maxLevelOf(c, it.id)));
+    if (isOwned(c, it.id)) return sum;
     const cr = (data.create || {})[String(it.id)];
-    if (c.kind === "w") { if (cr) addPairs(sum, cr.f ? cr.f[2] : cr.d, data.mats); }
-    else addPairs(sum, cr, data.mats);
+    if (cr) addPairs(sum, cr.f ? cr.f[2] : cr.d, data.mats);
     return sum;
   };
 
@@ -683,12 +711,19 @@
     const note = items.some(it => it.kind === "w")
       ? '<div class="mat-view-note">Each weapon shows the step that makes it: the <b>upgrade from</b> the weapon below it '
         + 'in its tree, or its <b>create</b> recipe when it has no parent. Open a weapon to see both when it has both.</div>'
-      : '<div class="mat-view-note">Create recipes. Armor upgrade costs (Armor Spheres) are not decoded yet.</div>';
+      : '<div class="mat-view-note">What each piece still needs: its create recipe if you don\'t own it, then one Armor Sphere '
+        + 'per level up to its max — the sphere grade rises with the level.</div>';
     grid.innerHTML = note + items.map(it => materialsRowHtml(it.cat, it.id, it, dataByFile[it.cat.statsFile])).join("");
   }
   function materialsRowHtml(c, id, it, data) {
-    let bodyHtml, complete = isOwned(c, id);
-    if (complete) bodyHtml = '<span class="mat-complete">Owned</span>';
+    const max = Math.max(1, maxLevelOf(c, id)), lv = atLevel(c, id);
+    let bodyHtml, complete = c.kind === "w" ? isOwned(c, id) : lv >= max;
+    if (complete) bodyHtml = `<span class="mat-complete">${c.kind === "a" && max > 1 ? "Fully upgraded" : "Owned"}</span>`;
+    else if (c.kind === "a" && data) {
+      const up = armorUpgradeCost(data, id, Math.max(1, lv), max);
+      bodyHtml = (lv ? "" : `<div class="mat-step">Create</div>${matPairsHtml((data.create || {})[String(id)], data.mats)}`)
+        + (up.map.size ? `<div class="mat-step">Upgrades · LV ${Math.max(1, lv)} → ${max} · ${fmtNum(up.zenny)}z</div>${matNameListHtml(up.map)}` : "");
+    }
     else if (!data) bodyHtml = '<div class="detail-note">No material data.</div>';
     else {
       const cr = (data.create || {})[String(id)];
@@ -797,7 +832,7 @@
     let grand = 0;
     const GROUPS = [
       { t: "Weapons", k: "w", note: "Each weapon counted once, by the step that makes it: the upgrade from its parent, or its create recipe when it has none." },
-      { t: "Armor", k: "a", note: "Create recipes. Upgrade costs (Armor Spheres) are not decoded yet, so they are not included." },
+      { t: "Armor", k: "a", note: "Create recipes for what you don't own, plus every Armor Sphere still needed to reach max level." },
     ];
     for (const group of GROUPS) {
       const rows = [];
@@ -902,7 +937,8 @@
           remaining.set(n, avail - covered);
           return { n, need, covered };
         });
-      const built = isOwned(t.c, t.id);
+      // Weapons are built once owned; armor once owned at its max level.
+      const built = isOwned(t.c, t.id) && atLevel(t.c, t.id) >= Math.max(1, maxLevelOf(t.c, t.id));
       rows.push({ t, lines, notes, done: built || (lines.length > 0 && lines.every(l => l.covered >= l.need)), built,
                   units: lines.reduce((a, l) => a + l.need, 0) });
     }
@@ -1317,7 +1353,20 @@
       if (cr.f) h += `<div class="mat-step">${cr.d ? "Or upgrade" : "Upgrade"} from ${escapeHtml(weaponName(c, cr.f[0]))}</div>${matPairsHtml(cr.f[2], data.mats)}`;
     } else {
       h += `<div class="mat-step">Create</div>${matPairsHtml(cr, data.mats)}`;
-      if (maxLevelOf(c, id) > 1) h += '<div class="detail-note">Upgrade costs (Armor Spheres) are not decoded yet.</div>';
+    }
+    // Armor upgrades: the next level's sphere and zenny, then everything left to the max.
+    const max = maxLevelOf(c, id);
+    if (c.kind === "a" && max > 1) {
+      const lv = Math.max(1, atLevel(c, id));
+      h += '<div class="detail-section-title">Upgrades</div>';
+      if (atLevel(c, id) >= max) h += '<div class="detail-note">Fully upgraded — no upgrades left.</div>';
+      else {
+        const step = ((data.upgrade || {})[String(id)] || [])[lv - 1];
+        if (step) h += `<div class="mat-step">${isOwned(c, id) ? "Next" : "First"}: LV ${lv} → ${lv + 1} · ${fmtNum(step[1])}z</div>
+          <ul class="mat-list"><li><span class="mat-q">1×</span> ${escapeHtml(data.mats[step[0]])}</li></ul>`;
+        const all = armorUpgradeCost(data, id, lv, max);
+        h += `<div class="mat-step">${isOwned(c, id) ? `From LV ${lv}` : "All upgrades"} → ${max} · ${fmtNum(all.zenny)}z</div>${matNameListHtml(all.map)}`;
+      }
     }
     el.innerHTML = h;
   }
