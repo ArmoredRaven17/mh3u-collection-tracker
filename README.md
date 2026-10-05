@@ -3,7 +3,7 @@
 A web app for tracking your **Monster Hunter 3 Ultimate** equipment collection — every weapon and
 armor piece, with an "owned" checkbox, full stats, crafting recipes and the upgrade tree.
 
-*(GitHub Pages, served from `docs/` — not published yet.)*
+**Live:** https://armoredraven17.github.io/mh3u-collection-tracker/ *(GitHub Pages, served from `docs/`)*
 
 ## Features
 
