@@ -135,10 +135,17 @@
   // Every switch in the Settings dialog. Persisted to localStorage and written into the save
   // file so it travels with a collection. localSaveEnabled is deliberately NOT here — "save in
   // this browser" is a property of this device, not of the collection.
-  const SETTING_KEYS = ["clickLevel", "ctrlRemove", "altMax", "shiftTarget", "spendMats"];
-  const settings = { clickLevel: true, ctrlRemove: true, altMax: true, shiftTarget: true, spendMats: true };
+  const SETTING_KEYS = ["clickLevel", "ctrlRemove", "altMax", "shiftTarget", "spendMats", "armorGender"];
+  // armorGender ("all" | "m" | "f") is which hunter the collection is for. It belongs with the
+  // save rather than the browser: it is a fact about the character being tracked, and someone
+  // keeping two saves wants it to arrive with the file.
+  const settings = { clickLevel: true, ctrlRemove: true, altMax: true, shiftTarget: true, spendMats: true,
+                     armorGender: "all" };
+  const GENDERS = ["all", "m", "f"];
+  const SETTING_DEFAULTS = { ...settings };   // types a loaded file is checked against
   const toggleSyncs = [];   // re-sync every switch after a save is loaded
   try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}")); } catch (e) {}
+  if (!GENDERS.includes(settings.armorGender)) settings.armorGender = "all";
   const saveSettings = () => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {} };
   let viewMode = "grid";
   try { viewMode = localStorage.getItem(VIEW_KEY) || "grid"; } catch (e) {}
@@ -148,6 +155,25 @@
   const filters = { text: "", searchAll: false, owned: "all", sort: "rarity", armorClass: "all", element: "all",
     aff: "all", slots: "all", def: "all", cls: {}, rarity: new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0]) };
   const armorClassName = { B: "Blademaster", G: "Gunner", A: "Both" };
+  // A few armor pieces are one gender's only (entry[4]: 0 male only, 1 female only, 2 either —
+  // from the record's wearer bits, 0x5dcb8c): 22 male-only and 28 female-only per slot, the
+  // Guild Bard / Scholar's style sets. Picking a gender takes the other's pieces out of the lists
+  // AND out of the counts: a category that could never reach 100% would make its completion tier
+  // — and the icon colour that tier drives — mean nothing.
+  const genderIds = new Map();   // "a:slot" -> { m: Set(male-only ids), f: Set(female-only ids) }
+  for (const c of CATS) {
+    if (c.kind !== "a") continue;
+    const m = new Set(), f = new Set();
+    for (const e of c.entries) { if (e[4] === 0) m.add(e[0]); else if (e[4] === 1) f.add(e[0]); }
+    genderIds.set(catId(c), { m, f });
+  }
+  // The ids the current choice hides: tracking a male hunter drops the female-only gear.
+  function hiddenGenderIds(c) {
+    if (c.kind !== "a" || settings.armorGender === "all") return null;
+    const g = genderIds.get(catId(c));
+    return settings.armorGender === "m" ? g.f : g.m;
+  }
+  const outOfScope = (c, id) => { const hidden = hiddenGenderIds(c); return !!hidden && hidden.has(id); };
   const statsCache = new Map();
   const materialsCache = new Map();
 
@@ -356,11 +382,22 @@
   }
 
   // ── Progress ───────────────────────────────────────────────────────────
-  const catTotal = c => c.entries.length;
-  const catOwnedCount = c => owned.get(catId(c)).size;
+  // Counts honour the gender scope: hidden pieces leave both numerator and denominator, but their
+  // owned state stays in `owned` (kept, not deleted), so it returns with Both.
+  function catTotal(c) {
+    const hidden = hiddenGenderIds(c);
+    return c.entries.length - (hidden ? hidden.size : 0);
+  }
+  function catOwnedCount(c) {
+    const m = owned.get(catId(c));
+    if (!hiddenGenderIds(c)) return m.size;
+    let n = 0; for (const id of m.keys()) if (!outOfScope(c, id)) n++;
+    return n;
+  }
   function catMaxedCount(c) {
     let n = 0;
     for (const [id, lv] of owned.get(catId(c))) {
+      if (outOfScope(c, id)) continue;
       const max = maxLevelOf(c, id);
       if (max === 0 || lv >= max) n++;
     }
@@ -478,6 +515,10 @@
     return current.entries.map(e => normalize(current, e));
   }
   function passesFilters(it) {
+    // Gender: pieces the tracked hunter cannot wear are hidden outright. They are out of the
+    // counts too — see genderIds — so this is a scope, not just a view.
+    if (it.kind === "a" && settings.armorGender !== "all"
+        && it.gender !== 2 && it.gender !== (settings.armorGender === "m" ? 0 : 1)) return false;
     if (it.kind === "a" && filters.armorClass !== "all" && it.armorClass !== "A" && it.armorClass !== filters.armorClass) return false;
     if (filters.text && !filters.searchAll) {
       const q = filters.text.toLowerCase();
@@ -1043,6 +1084,7 @@
     $("weaponStatGroup").classList.toggle("hidden", c.kind !== "w");
     $("elementGroup").classList.toggle("hidden", c.kind !== "w");
     $("armorTypeGroup").classList.toggle("hidden", c.kind !== "a");
+    $("armorGenderGroup").classList.toggle("hidden", c.kind !== "a");
     document.querySelectorAll(".cat-row").forEach(r => r.classList.toggle("active", r.dataset.cat === catId(c)));
     $("catTitle").textContent = c.label;
     renderGrid();
@@ -1386,7 +1428,13 @@
     applyChecklist(obj.checklist);
     if (unknownCount) toast(`${unknownCount} unrecognized id(s) preserved for re-export.`);
     if (obj.settings && typeof obj.settings === "object")
-      for (const k of SETTING_KEYS) if (typeof obj.settings[k] === "boolean") settings[k] = obj.settings[k];
+      for (const k of SETTING_KEYS) {
+        // Checked against the default's type, so the string setting is not dropped.
+        const v = obj.settings[k];
+        if (typeof v !== typeof SETTING_DEFAULTS[k]) continue;
+        if (k === "armorGender" && !GENDERS.includes(v)) continue;
+        settings[k] = v;
+      }
     saveSettings();
     for (const sync of toggleSyncs) sync();
     updateProgress();
@@ -1504,6 +1552,18 @@
   $("defSelect").addEventListener("change", function () { filters.def = this.value; renderGrid(); });
   document.querySelectorAll('input[name="armorClassFilter"]').forEach(r =>
     r.addEventListener("change", function () { if (this.checked) { filters.armorClass = this.value; renderGrid(); } }));
+  const armorGenderRadios = [...document.querySelectorAll('input[name="armorGenderFilter"]')];
+  const syncArmorGender = () => armorGenderRadios.forEach(r => { r.checked = r.value === settings.armorGender; });
+  armorGenderRadios.forEach(r => r.addEventListener("change", function () {
+    if (!this.checked) return;
+    settings.armorGender = this.value;
+    saveSettings();
+    markDirty();              // it rides along in the save, like the other settings
+    updateProgress();         // totals, sidebar fractions and the tier colouring each icon
+    renderGrid();
+  }));
+  syncArmorGender();
+  toggleSyncs.push(syncArmorGender);   // a loaded save brings its own hunter
   function updateViewHeader() {
     if (viewMode === "totals") { $("catTitle").textContent = "All categories"; $("catCount").textContent = ""; }
     else if (viewMode === "checklist") {
