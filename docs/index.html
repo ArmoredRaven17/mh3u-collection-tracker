@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MH3U Collection Tracker</title>
 <link rel="icon" type="image/png" href="assets/icons/icon_armor_chest_r1.png">
-<link rel="stylesheet" href="styles.css?v=5">
+<link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
 <div id="app">
@@ -130,6 +130,9 @@
           <div id="gridEmpty" class="grid-empty hidden">No items match the current filters.</div>
         </div>
 
+        <div id="detailResizer" class="detail-resizer" role="separator" aria-orientation="vertical"
+          tabindex="0" aria-label="Resize the details panel"
+          title="Drag to resize — double-click to reset"></div>
         <aside id="detailPanel" class="detail-panel">
           <div class="detail-empty">Select an item to see its details.</div>
         </aside>
@@ -355,6 +358,6 @@
 <div id="toast" class="toast hidden"></div>
 
 <script src="data/catalog.js?v=4"></script>
-<script src="app.js?v=7"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>

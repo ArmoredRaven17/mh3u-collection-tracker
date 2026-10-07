@@ -228,8 +228,11 @@ body{
 /* Rarity fill overlays: injected at runtime from the game's own Rare 1-10 colours (app.js). */
 
 /* Detail panel */
+/* Width is a variable so the drag handle can set it in one place; the stacked layout
+   below overrides both properties outright, so the handle has nothing to fight there. */
 .detail-panel{
-  flex:0 0 340px;width:340px;overflow-y:auto;border-left:1px solid var(--line);
+  flex:0 0 var(--detail-w,340px);width:var(--detail-w,340px);
+  overflow-y:auto;border-left:1px solid var(--line);
   background-color:var(--panel-bg);
   background-image:
     linear-gradient(color-mix(in srgb,var(--panel-bg) 90%,transparent),color-mix(in srgb,var(--panel-bg) 90%,transparent)),
@@ -496,3 +499,16 @@ kbd{display:inline-block;background:var(--bg2);border:1px solid var(--line);
 .song-table td{padding:3px 6px 3px 0}
 .song-table .song-notes{white-space:nowrap;width:1%}
 .song-table .song-notes .note-ico{margin:0 1px 0 0}
+/* The drag handle between the grid and the details panel (from the MHGU tracker). Wider than it
+   looks: a 5px target is hard to hit, so the strip is 7px and only the middle pixel is painted. */
+.detail-resizer{flex:0 0 7px;cursor:col-resize;position:relative;z-index:3;
+  background:transparent;touch-action:none}
+.detail-resizer::after{content:"";position:absolute;inset:0 3px;background:var(--line)}
+.detail-resizer:hover::after,.detail-resizer:focus-visible::after,
+.detail-resizer.dragging::after{background:var(--accent-hover);inset:0 2px}
+.detail-resizer:focus-visible{outline:none}
+/* No dragging once the columns stack — there is no side-by-side width to set. */
+@media (max-width:820px){ .detail-resizer{display:none} }
+/* Keeps the pointer a resize arrow across the whole window mid-drag, and stops the grid from
+   selecting text as you sweep over it. */
+body.resizing-detail{cursor:col-resize;user-select:none}

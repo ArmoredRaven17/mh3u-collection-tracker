@@ -1621,6 +1621,7 @@
   }
   document.addEventListener("keydown", e => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); saveToFile(false); return; }
+    if (e.defaultPrevented) return;   // already used, e.g. by the details panel's resize handle
     if ((viewMode !== "grid" && viewMode !== "list") || e.ctrlKey || e.metaKey || e.altKey) return;
     if (isTypingTarget(e.target) || document.querySelector(".modal:not(.hidden)")) return;
     const step = GRID_NAV[e.key.toLowerCase()];
@@ -1733,6 +1734,75 @@
       wrap.appendChild(d);
     }
   }
+
+  // ── Details panel width ────────────────────────────────────────────────
+  // Ported from the MHGU tracker (e7fe292, with f7e10c8's measured clamp). Dragged, not typed, so
+  // it lives in localStorage rather than the save file: it describes this screen, like the theme
+  // and the chosen view, not the collection.
+  const DETAIL_W_KEY = "mh3u-tracker-detail-width";
+  const DETAIL_W_DEFAULT = 340, DETAIL_W_MIN = 240;
+  // Leave the middle column enough to keep its own header intact: the category name, the count
+  // and the view buttons need about 380px between them, and below that the buttons get shoved
+  // past the edge. Measured off .content-inner so the sidebar's width is already accounted for.
+  const GRID_COLUMN_MIN = 383 + 7;      // header's needs, plus the drag handle
+  function detailWidthMax() {
+    const inner = document.querySelector(".content-inner");
+    const avail = inner ? inner.getBoundingClientRect().width : window.innerWidth;
+    return Math.max(DETAIL_W_MIN, Math.min(760, avail - GRID_COLUMN_MIN));
+  }
+  function setDetailWidth(px, persist) {
+    const w = Math.round(Math.max(DETAIL_W_MIN, Math.min(detailWidthMax(), px)));
+    document.documentElement.style.setProperty("--detail-w", w + "px");
+    const bar = $("detailResizer");
+    if (bar) bar.setAttribute("aria-valuenow", String(w));
+    if (persist) { try { localStorage.setItem(DETAIL_W_KEY, String(w)); } catch (e) {} }
+    return w;
+  }
+  (function initDetailWidth() {
+    const bar = $("detailResizer"), panel = $("detailPanel");
+    if (!bar || !panel) return;
+    bar.setAttribute("aria-valuemin", String(DETAIL_W_MIN));
+    let stored = NaN;
+    try { stored = parseInt(localStorage.getItem(DETAIL_W_KEY) || "", 10); } catch (e) {}
+    if (stored > 0) setDetailWidth(stored, false);
+    let dragging = false;
+    bar.addEventListener("pointerdown", ev => {
+      if (ev.button) return;
+      dragging = true;
+      bar.setPointerCapture(ev.pointerId);
+      bar.classList.add("dragging");
+      document.body.classList.add("resizing-detail");
+      ev.preventDefault();
+    });
+    bar.addEventListener("pointermove", ev => {
+      // Measured from the panel's right edge, which stays put while the left edge moves.
+      if (dragging) setDetailWidth(panel.getBoundingClientRect().right - ev.clientX, false);
+    });
+    const end = ev => {
+      if (!dragging) return;
+      dragging = false;
+      bar.classList.remove("dragging");
+      document.body.classList.remove("resizing-detail");
+      try { bar.releasePointerCapture(ev.pointerId); } catch (e) {}
+      setDetailWidth(panel.getBoundingClientRect().width, true);   // persist where it landed
+    };
+    bar.addEventListener("pointerup", end);
+    bar.addEventListener("pointercancel", end);
+    bar.addEventListener("dblclick", () => setDetailWidth(DETAIL_W_DEFAULT, true));
+    // Arrow keys on the focused handle resize it. preventDefault also tells the grid's own
+    // arrow-key walker (document keydown) to leave this key press alone.
+    bar.addEventListener("keydown", ev => {
+      const step = ev.key === "ArrowLeft" ? 16 : ev.key === "ArrowRight" ? -16 : 0;
+      if (!step) return;
+      ev.preventDefault();
+      setDetailWidth(panel.getBoundingClientRect().width + step, true);
+    });
+    // A window narrow enough to breach the clamp pulls the panel back within it.
+    window.addEventListener("resize", () => {
+      if (getComputedStyle(bar).display === "none") return;   // stacked: nothing to clamp
+      setDetailWidth(panel.getBoundingClientRect().width, false);
+    });
+  })();
 
   // ── Modals ─────────────────────────────────────────────────────────────
   function bindModal(btnId, modalId, closeId) {
