@@ -83,6 +83,17 @@ UPGRADE_TABLES = 0xc06bb4  # per class: 0x1c-byte records indexed by weapon id: 
 CREATE_TABLES = 0xc06b64   # per class: 24-byte records {u16, u16 weapon id, 4 x (item, qty), u32}
 ARMOR_RECIPES = 0xc06b48   # per item type: the same 24-byte records keyed by armour id
 
+# Bow coatings: bit n of +0x30 = Menu 502 + n (Power, Poison, Paralysis, Sleep, C-Range, Paint,
+# Exhaust, Slime). Each is drawn with its item's own icon and colour from the item table
+# (READ 0x57ab4c: [0xcb9954] = 0xb92a78, 20-byte records, +4 icon cell, +5 colour index into the
+# boot-built palette at 0xcb9964 via 0x57abe8). Bit -> item by name: the menu label is the
+# item name less " Coating" (C-Range = C.Range).
+ITEM_TABLE = 0xb92a78
+ITEM_PALETTE = 0xcb9964
+COATING_ITEMS = {1: 'Power Coating', 2: 'Poison Coating', 3: 'Para Coating', 4: 'Sleep Coating',
+                 5: 'C.Range Coating', 6: 'Paint Coating', 7: 'Exhaust Coating', 8: 'Slime Coating'}
+COATINGS = {bit: [MENU[502 + bit], 'coat_%d' % bit] for bit in COATING_ITEMS}
+
 PROFILES = [struct.unpack_from('<7I', CODE, SHARP_TABLE - BASE + 28 * i) for i in range(91)]
 
 
@@ -183,8 +194,24 @@ def weapon_class(cls, key, msg):
             if cls == 10:
                 cx['a'] = b[0x17]
                 st['arc'] = ARCS[b[0x17]] if b[0x17] < 3 else None
-                st['charges'] = [MENU[487 + c] for c in struct.unpack_from('<4I', b, 0x1c) if c < 15]
-                st['coatings'] = [MENU[502 + bit] for bit in range(1, 9) if b[0x30] >> bit & 1]
+                # Charges: Menu 487 + code; the 4th (index 3) only with Load Up -- READ 0x8e0c68
+                # caps the charge index at 3 with skill 0xac (Load Up), else 2.
+                st['charges'] = [[MENU[487 + c], 1 if k == 3 else 0]
+                                 for k, c in enumerate(struct.unpack_from('<4I', b, 0x1c)) if c < 15]
+                st['coatings'] = [COATINGS[bit] for bit in range(1, 9) if b[0x30] >> bit & 1]
+                # One attribute: +0x14 code, +0x15 s8 value / 10 (negative = Awaken), READ 0x57d770.
+                # Code 4 is Dragon, except with bit 0x2000 of the u32 at +0x30 set it is Slime
+                # (READ 0x57d81c, 0x57fea0 -- the Dios and Kelbi bows).
+                t, v = b[0x14], b[0x15]
+                if t:
+                    slime = t == 4 and struct.unpack_from('<I', b, 0x30)[0] & 0x2000
+                    code = 9 if slime else t
+                    st['ele'] = [[ATTR_NAME[code], abs(s8(v)) * 10, 1 if s8(v) < 0 else 0]]
+                    ele_mask |= 1 << (code - 1)
+                    if s8(v) < 0:
+                        awk_mask |= 1 << (code - 1)
+                else:
+                    st['ele'] = []
             else:
                 rl = min(max(s8(b[8]) + 3, 0), 9)
                 rc = min(max(s8(b[7]) or 1, 0), 6)
@@ -321,6 +348,21 @@ def write_icons(colours):
     types.update({'armor_' + key: typ for typ, key, _, _ in ARMOR_SLOTS})
     out = os.path.join(DOCS, 'assets', 'icons')
     os.makedirs(out, exist_ok=True)
+    # Coating bottles: the item's own icon in its own colour.
+    import mh3u_static_init as S
+    pal = S.run_all().raw(ITEM_PALETTE, 64)
+    cdir = os.path.join(DOCS, 'assets', 'coatings')
+    os.makedirs(cdir, exist_ok=True)
+    item_ids = {n: i for i, n in enumerate(ITEMS)}
+    for bit, item in COATING_ITEMS.items():
+        rec = CODE[ITEM_TABLE - BASE + 20 * item_ids[item]:][:20]
+        icon, col = rec[4], rec[5]
+        x, y = icon % 10 * 22, icon // 10 * 22
+        cell = atlas[y:y + 22, x:x + 22].astype(np.float32)
+        cell[..., :3] *= [pal[4 * col + j] / 255 for j in range(3)]
+        Image.fromarray(cell.clip(0, 255).astype(np.uint8)).resize((44, 44), Image.NEAREST).save(
+            os.path.join(cdir, 'coat_%d.png' % bit))
+        COATINGS[bit].append('#%02x%02x%02x' % tuple(pal[4 * col:4 * col + 3]))
     for slug, typ in types.items():
         idx = CODE[ICON_BY_TYPE - BASE + typ]
         x, y = idx % 10 * 22, idx // 10 * 22
@@ -363,6 +405,7 @@ def main():
     os.makedirs(sd, exist_ok=True)
     os.makedirs(md, exist_ok=True)
     totals = {}
+    write_icons(colours)    # first: it also fills in the coating colours the bow stats carry
     for cls, key, msg in CLASSES:
         label, mult, entries, stats, create = weapon_class(cls, key, msg)
         catalog['weapons'][key] = {'label': label, 'icon': key, 'mult': mult / 100, 'entries': entries}
@@ -392,7 +435,6 @@ def main():
         totals['armor_' + key] = len(entries)
     with open(os.path.join(DOCS, 'data', 'catalog.js'), 'w', encoding='utf-8') as fh:
         fh.write('window.CATALOG = ' + json.dumps(catalog, ensure_ascii=False, separators=(',', ':')) + ';\n')
-    write_icons(colours)
     print(totals, sum(totals.values()), 'pieces')
 
 

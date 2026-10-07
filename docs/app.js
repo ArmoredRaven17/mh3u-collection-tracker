@@ -9,7 +9,7 @@
   // Bump whenever docs/data/ is regenerated. The JSON files are fetched at runtime,
   // so without this a browser holding a cached copy runs new code against old data —
   // which fails silently, as wrong numbers rather than an error.
-  const DATA_VERSION = "3";
+  const DATA_VERSION = "4";
   const APP_TITLE = "MH3U Collection Tracker";
   const SAVE_APP = "mh3u-collection-tracker";
   const SAVE_VERSION = 1;
@@ -1278,6 +1278,18 @@
   const chips = items => `<div class="chip-list">${items.map(c => `<span class="chip">${escapeHtml(c)}</span>`).join("")}</div>`;
   const treeLinks = (c, ids) => ids.map(i => routeLinkHtml(c, i)).join('<span class="tree-sep">·</span>');
 
+  // Bow shot colours, as the MHGU apps draw them (MHFU Look Up's rule): one channel pinned per
+  // shot type — Rapid blue, Spread green, Pierce red — the other two running 200 -> 88 as the level
+  // rises, so an L5 reads far deeper than an L1.
+  const SHOT_PIN = { Rapid: [0, 0, 1], Spread: [0, 1, 0], Pierce: [1, 0, 0] };
+  function shotCol(shot) {
+    const m = /^([A-Za-z]+)\s*L(?:v)?\s*(\d+)/.exec(String(shot || ""));
+    const pin = m && SHOT_PIN[m[1]];
+    if (!pin) return "";
+    const t = (Math.max(1, Math.min(5, Number(m[2]) || 3)) - 1) / 4;
+    const off = Math.round(200 + (88 - 200) * t);
+    return `rgb(${pin.map(p => (p ? 255 : off)).join(",")})`;
+  }
   function renderWeaponDetail(c, data, id) {
     const s = data.byId[String(id)];
     if (!s) return '<div class="detail-note">No detailed stats for this weapon.</div>';
@@ -1303,8 +1315,18 @@
           <button data-band="1" class="${sharpBand === 1 ? "active" : ""}">Sharpness +1</button></div>
         ${sharpBarHtml(s.sh[sharpBand])}`;
     }
-    if (s.charges && s.charges.length) h += `<div class="detail-section-title">Charges</div>${chips(s.charges)}`;
-    if (s.coatings && s.coatings.length) h += `<div class="detail-section-title">Coatings</div>${chips(s.coatings)}`;
+    // Charges are an ordered set, so they are numbered: charge 1 is the one you fire from a
+    // standing start. In 3U the 4th only exists with Load Up (0x8e0c68), so it carries the tag.
+    if (s.charges && s.charges.length) h += `<div class="detail-section-title">Charges</div>
+      <ol class="charge-list">${s.charges.map(([shot, loadUp]) => {
+        const col = shotCol(shot);
+        return `<li><span class="charge-shot"${col ? ` style="color:${col}"` : ""}>${escapeHtml(shot)}</span>${
+          loadUp ? '<span class="lu-tag">Load Up</span>' : ""}</li>`;
+      }).join("")}</ol>`;
+    // Coatings: [label, icon, colour] — the coating item's own bottle icon and colour from the game.
+    if (s.coatings && s.coatings.length) h += `<div class="detail-section-title">Coatings</div><div class="chip-list">${
+      s.coatings.map(([label, icon, col]) => `<span class="chip coat" style="color:${col};border-color:${col}55"><img
+        src="assets/coatings/${icon}.png" alt="">${escapeHtml(label)}</span>`).join("")}</div>`;
     if (s.ammo && s.ammo.length)
       h += `<div class="detail-section-title">Ammo</div><table class="lvl-table ammo-table"><tbody>${s.ammo.map(([n, cap]) =>
         `<tr><td>${escapeHtml(n)}</td><td class="num">${cap}</td></tr>`).join("")}</tbody></table>`;
