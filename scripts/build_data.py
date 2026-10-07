@@ -69,7 +69,21 @@ SHARP_TABLE = 0xba3c50   # READ 0x8ec228: per profile, 7 x u32 cumulative colour
 # READ 0x8d2f00..0x8d2f80: profile = record +8; max sharpness = 150 + 50 * record +9, +50 with
 # Sharpness+1 (skill 0x17), capped at 450.
 HH_NOTES = 0xba5454      # READ 0x355e0c / 0x932fe4: three note codes per record +0x15
-NOTE_COLOURS = {1: 'White', 2: 'Purple', 3: 'Blue', 4: 'Red', 5: 'Yellow', 6: 'Orange', 7: 'Green', 8: 'Sky'}  # drawn as icons; colours named by eye
+# Note colours, READ 0x355e50: the HUD tints each note pane with u32 RGBA 0xd46360[code] (built at
+# boot). The names below just name those colours (white, e200fa purple, ff0300 red, 006aff blue,
+# 08ff37 green, fefa00 yellow, 00fffe light blue, ffa003 orange). Kiranico's per-horn colours are a
+# permutation of these and are wrong for codes 3-8: by the game's own songs, Attack Boost is built
+# on code 3 (red), Defense on 4 (blue), Health Recovery on 5 (green).
+NOTE_COLOURS = {1: 'White', 2: 'Purple', 3: 'Red', 4: 'Blue', 5: 'Green', 6: 'Yellow', 7: 'Light Blue', 8: 'Orange'}
+NOTE_RGBA = 0xd46360
+NOTE_GLYPH = (250, 1, 266, 17)   # the white note in td_icon_ID (x0, y0, x1, y1), tinted per code
+# Songs, READ 0x3522fc / 0x3527b4: 75 songs x 4 note codes (0-terminated) at 0xba54ea; a horn can play
+# a song when every note of it is among its three. Effect = byte 0xba5616[song], named by message
+# table 0x33 (Skill_Type) string 0x81 + effect (0x87c4dc).
+SONG_NOTES = 0xba54ea
+SONG_EFFECT = 0xba5616
+SONG_COUNT = 75
+NOTE_HEX = {}   # code -> '#rrggbb', filled by write_icons()
 GL_SHELLS = ['Normal', 'Wide', 'Long']       # record +0x15 % 3 (READ 0x8d3c78), level = +0x15 / 3 + 1 (READ 0x9ea404)
 PHIALS = BOWGUN_MES[100:106]                 # READ 0x35c45c: Bowgun_mes 100 + record +0x15
 ARCS = MENU[450:453]                         # Menu 450 + record +0x17: Blast Focus Wide
@@ -236,7 +250,12 @@ def weapon_class(cls, key, msg):
             cx['sh'] = top_colour(bars[0]) << 3 | top_colour(bars[1])
             if cls == 12:
                 notes = list(raw(HH_NOTES + 3 * b[0x15], 3))
-                st['notes'] = [NOTE_COLOURS.get(x, '?') for x in notes]
+                st['notes'] = [[NOTE_COLOURS.get(x, '?'), 'note_%d' % x, NOTE_HEX.get(x, '#ffffff')] for x in notes]
+                st['songs'] = []
+                for k in range(SONG_COUNT):
+                    seq = [x for x in raw(SONG_NOTES + 4 * k, 4) if x]
+                    if seq and all(x in notes for x in seq):
+                        st['songs'].append([[notes.index(x) for x in seq], SKILL_TREES[0x81 + CODE[SONG_EFFECT - BASE + k]]])
                 cx['n'] = notes[0] << 8 | notes[1] << 4 | notes[2]
             elif cls == 9:
                 cx.update(s=b[0x15] % 3, sl=b[0x15] // 3 + 1)
@@ -363,6 +382,19 @@ def write_icons(colours):
         Image.fromarray(cell.clip(0, 255).astype(np.uint8)).resize((44, 44), Image.NEAREST).save(
             os.path.join(cdir, 'coat_%d.png' % bit))
         COATINGS[bit].append('#%02x%02x%02x' % tuple(pal[4 * col:4 * col + 3]))
+    # Hunting Horn notes: the white note glyph tinted with each code's colour, as the HUD tints it.
+    rgba = S.run_all().raw(NOTE_RGBA, 4 * 9)
+    ndir = os.path.join(DOCS, 'assets', 'notes')
+    os.makedirs(ndir, exist_ok=True)
+    x0, y0, x1, y1 = NOTE_GLYPH
+    glyph = atlas[y0:y1, x0:x1].astype(np.float32)
+    for code in NOTE_COLOURS:
+        rgb = rgba[4 * code:4 * code + 3]
+        NOTE_HEX[code] = '#%02x%02x%02x' % tuple(rgb)
+        img = glyph.copy()
+        img[..., :3] *= [c / 255 for c in rgb]
+        Image.fromarray(img.clip(0, 255).astype(np.uint8)).resize((48, 48), Image.NEAREST).save(
+            os.path.join(ndir, 'note_%d.png' % code))
     for slug, typ in types.items():
         idx = CODE[ICON_BY_TYPE - BASE + typ]
         x, y = idx % 10 * 22, idx // 10 * 22

@@ -476,11 +476,6 @@ kbd{display:inline-block;background:var(--bg2);border:1px solid var(--line);
 .modal-card code{font-size:12px;opacity:.85}
 /* Sharpness drawn to the game's scale: the full bar is 450, so shorter bars read shorter. */
 .sharp-bar-lg{height:12px;margin-top:4px;border:1px solid #ffffff22}
-.note-dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-left:4px;
-  border:1px solid #0008;vertical-align:middle}
-.note-white{background:#f2f2f2}.note-purple{background:#a05ad0}.note-blue{background:#4a7ff0}
-.note-red{background:#e04848}.note-yellow{background:#e8d23a}.note-orange{background:#ef8f2e}
-.note-green{background:#4caf50}.note-sky{background:#7fd6f5}
 .tree-row{font-size:12.5px;padding:3px 0;line-height:1.6}
 .tree-row .k{opacity:.7;margin-right:6px}
 .tree-sep{opacity:.4;margin:0 6px}
@@ -496,3 +491,8 @@ kbd{display:inline-block;background:var(--bg2);border:1px solid var(--line);
   border-radius:4px;padding:0 4px;white-space:nowrap}
 .chip.coat{display:inline-flex;align-items:center;gap:4px}
 .chip.coat img{width:16px;height:16px;flex:0 0 auto;image-rendering:pixelated}
+/* Hunting Horn notes and songs: the game's own note glyph in its HUD colour (assets/notes). */
+.note-ico{width:16px;height:16px;image-rendering:pixelated;vertical-align:middle;margin-left:2px}
+.song-table td{padding:3px 6px 3px 0}
+.song-table .song-notes{white-space:nowrap;width:1%}
+.song-table .song-notes .note-ico{margin:0 1px 0 0}

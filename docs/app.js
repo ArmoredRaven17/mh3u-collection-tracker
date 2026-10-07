@@ -9,7 +9,7 @@
   // Bump whenever docs/data/ is regenerated. The JSON files are fetched at runtime,
   // so without this a browser holding a cached copy runs new code against old data —
   // which fails silently, as wrong numbers rather than an error.
-  const DATA_VERSION = "4";
+  const DATA_VERSION = "5";
   const APP_TITLE = "MH3U Collection Tracker";
   const SAVE_APP = "mh3u-collection-tracker";
   const SAVE_VERSION = 1;
@@ -1302,8 +1302,9 @@
           : `${escapeHtml(e[0])} ${e[1]}`).join(" / ") : "—"}</span></div>`;
     if (s.def) h += row("Defense", "+" + s.def);
     h += row("Slots", slotsText(s.slots || 0));
-    if (s.notes) h += `<div class="stat-row"><span class="k">Notes</span><span class="v">${s.notes.map(n =>
-      `<span class="note-dot note-${n.toLowerCase()}" title="${escapeHtml(n)}"></span>`).join("")}</span></div>`;
+    // Hunting Horn notes: [label, icon, colour] — the game's note glyph in the colour the HUD uses.
+    const noteImg = n => `<img class="note-ico" src="assets/notes/${n[1]}.png" alt="${escapeHtml(n[0])}" title="${escapeHtml(n[0])}">`;
+    if (s.notes) h += `<div class="stat-row"><span class="k">Notes</span><span class="v">${s.notes.map(noteImg).join("")}</span></div>`;
     if (s.shell) h += row("Shelling", s.shell);
     if (s.phial) h += row("Phial", s.phial);
     if (s.arc) h += row("Arc shot", s.arc);
@@ -1315,6 +1316,12 @@
           <button data-band="1" class="${sharpBand === 1 ? "active" : ""}">Sharpness +1</button></div>
         ${sharpBarHtml(s.sh[sharpBand])}`;
     }
+    // Songs: every melody this horn's three notes can play, in the game's own song order, with what
+    // it does. Each entry is [[indices into the horn's notes], effect].
+    if (s.songs && s.songs.length) h += `<div class="detail-section-title">Songs</div>
+      <table class="lvl-table song-table"><tbody>${s.songs.map(([seq, effect]) => `<tr>
+        <td class="song-notes">${seq.map(i => noteImg(s.notes[i])).join("")}</td>
+        <td>${escapeHtml(effect)}</td></tr>`).join("")}</tbody></table>`;
     // Charges are an ordered set, so they are numbered: charge 1 is the one you fire from a
     // standing start. In 3U the 4th only exists with Load Up (0x8e0c68), so it carries the tag.
     if (s.charges && s.charges.length) h += `<div class="detail-section-title">Charges</div>
