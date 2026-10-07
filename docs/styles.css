@@ -485,3 +485,6 @@ kbd{display:inline-block;background:var(--bg2);border:1px solid var(--line);
 .tree-row .k{opacity:.7;margin-right:6px}
 .tree-sep{opacity:.4;margin:0 6px}
 .ammo-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+/* An element that needs the Awaken skill, shown as the game shows it until the skill is on. */
+.ele-awk{opacity:.6}
+#elementGroup .awk-select{margin-top:6px}

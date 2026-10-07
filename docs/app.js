@@ -9,7 +9,7 @@
   // Bump whenever docs/data/ is regenerated. The JSON files are fetched at runtime,
   // so without this a browser holding a cached copy runs new code against old data —
   // which fails silently, as wrong numbers rather than an error.
-  const DATA_VERSION = "2";
+  const DATA_VERSION = "3";
   const APP_TITLE = "MH3U Collection Tracker";
   const SAVE_APP = "mh3u-collection-tracker";
   const SAVE_VERSION = 1;
@@ -135,12 +135,15 @@
   // Every switch in the Settings dialog. Persisted to localStorage and written into the save
   // file so it travels with a collection. localSaveEnabled is deliberately NOT here — "save in
   // this browser" is a property of this device, not of the collection.
-  const SETTING_KEYS = ["clickLevel", "ctrlRemove", "altMax", "shiftTarget", "spendMats", "armorGender"];
+  const SETTING_KEYS = ["clickLevel", "ctrlRemove", "altMax", "shiftTarget", "spendMats", "armorGender", "awaken"];
   // armorGender ("all" | "m" | "f") is which hunter the collection is for. It belongs with the
   // save rather than the browser: it is a fact about the character being tracked, and someone
   // keeping two saves wants it to arrive with the file.
+  // awaken: whether the hunter runs the Awaken skill. Like armorGender it describes the hunter, so it
+  // travels with the save. Off, an element that needs Awaken is shown the game's way — "(Ice 150)" —
+  // and does not count for the Element filter; on, it reads and filters like a natural one.
   const settings = { clickLevel: true, ctrlRemove: true, altMax: true, shiftTarget: true, spendMats: true,
-                     armorGender: "all" };
+                     armorGender: "all", awaken: false };
   const GENDERS = ["all", "m", "f"];
   const SETTING_DEFAULTS = { ...settings };   // types a loaded file is checked against
   const toggleSyncs = [];   // re-sync every switch after a save is loaded
@@ -153,7 +156,7 @@
   // Bit order matches build_data.py: element codes 1-5 then status codes 1-4.
   const ELEMENTS = C.labels.elements;
   const filters = { text: "", searchAll: false, owned: "all", sort: "rarity", armorClass: "all", element: "all",
-    aff: "all", slots: "all", def: "all", cls: {}, rarity: new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0]) };
+    awk: "all", aff: "all", slots: "all", def: "all", cls: {}, rarity: new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0]) };
   const armorClassName = { B: "Blademaster", G: "Gunner", A: "Both" };
   // A few armor pieces are one gender's only (entry[4]: 0 male only, 1 female only, 2 either —
   // from the record's wearer bits, 0x5dcb8c): 22 male-only and 28 female-only per slot, the
@@ -501,6 +504,7 @@
       parent: w ? entry[3] : 0,
       order: w ? (entry[4] || 0) : 0,
       ele: w ? (entry[5] || 0) : 0,
+      awk: w ? (entry[8] || 0) : 0,     // the elements/status in `ele` that only show with Awaken
       st: w ? (entry[6] || null) : null,   // [attack, affinity, defense, slots]
       cx: w ? (entry[7] || null) : null,   // class-specific payload, see CLASS_FILTERS
       armorClass: c.kind === "a" ? (entry[5] || "A") : "",
@@ -539,11 +543,19 @@
       if (filters.def === "yes" && !def) return false;
     }
     if (!passesClassFilters(it)) return false;
+    // Awaken: "natural" = carries an element or status that works without the skill; "awaken" =
+    // carries one that needs it.
+    if (filters.awk !== "all" && it.kind === "w") {
+      if (filters.awk === "natural" && !(it.ele & ~it.awk)) return false;
+      if (filters.awk === "awaken" && !it.awk) return false;
+    }
+    // Element counts what the hunter actually gets: an Awaken-only element only with the skill on.
     if (filters.element !== "all" && it.kind === "w") {
-      if (filters.element === "none") { if (it.ele) return false; }
+      const ele = settings.awaken ? it.ele : it.ele & ~it.awk;
+      if (filters.element === "none") { if (ele) return false; }
       else {
         const bit = ELEMENTS.indexOf(filters.element);
-        if (bit < 0 || !((it.ele >> bit) & 1)) return false;
+        if (bit < 0 || !((ele >> bit) & 1)) return false;
       }
     }
     if (it.rar >= 1 && !filters.rarity.has(it.rar)) return false;
@@ -1271,8 +1283,11 @@
     if (!s) return '<div class="detail-note">No detailed stats for this weapon.</div>';
     let h = row("Attack", s.atk)
       + (s.aff ? row("Affinity", (s.aff > 0 ? "+" : "") + s.aff + "%") : row("Affinity", "0%"));
-    if (s.ele) h += row("Element", s.ele.length
-      ? s.ele.map(e => `${e[0]} ${e[1]}${e[2] ? " (Awaken)" : ""}`).join(" / ") : "—");
+    // The game parenthesises an element that needs Awaken until the skill is active; so does this.
+    if (s.ele) h += `<div class="stat-row"><span class="k">Element</span><span class="v">${s.ele.length
+      ? s.ele.map(e => e[2] && !settings.awaken
+          ? `<span class="ele-awk" title="Needs the Awaken skill">(${escapeHtml(e[0])} ${e[1]})</span>`
+          : `${escapeHtml(e[0])} ${e[1]}`).join(" / ") : "—"}</span></div>`;
     if (s.def) h += row("Defense", "+" + s.def);
     h += row("Slots", slotsText(s.slots || 0));
     if (s.notes) h += `<div class="stat-row"><span class="k">Notes</span><span class="v">${s.notes.map(n =>
@@ -1596,6 +1611,7 @@
     r.addEventListener("change", function () { if (this.checked) { filters.owned = this.value; renderGrid(); } }));
   $("sortSelect").addEventListener("change", function () { filters.sort = this.value; renderGrid(); });
   $("elementSelect").addEventListener("change", function () { filters.element = this.value; renderGrid(); });
+  $("awkSelect").addEventListener("change", function () { filters.awk = this.value; renderGrid(); });
   $("affSelect").addEventListener("change", function () { filters.aff = this.value; renderGrid(); });
   $("slotSelect").addEventListener("change", function () { filters.slots = this.value; renderGrid(); });
   $("defSelect").addEventListener("change", function () { filters.def = this.value; renderGrid(); });
@@ -1742,6 +1758,10 @@
   bindSetting("altMaxToggle", "altMax");
   bindSetting("shiftTargetToggle", "shiftTarget");
   bindSetting("spendMatsToggle", "spendMats");
+  bindSetting("awakenToggle", "awaken", () => {
+    renderGrid();
+    if (selectedId != null && current) openDetail(current, selectedId);   // re-draw the element row
+  });
   bindToggle("localSaveToggle", () => localSaveEnabled, v => {
     localSaveEnabled = v;
     try {

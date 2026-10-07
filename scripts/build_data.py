@@ -176,7 +176,7 @@ def weapon_class(cls, key, msg):
         name, rar = names[i], b[2] + 1
         st = {'rar': rar}
         cx = {}
-        ele_mask = 0
+        ele_mask = awk_mask = 0     # every element/status it carries; the ones that need Awaken
         if cls in GUNNER:
             atk = struct.unpack_from('<H', b, 4)[0]
             aff, dfn, slots = 0, 0, b[0x11]
@@ -200,6 +200,8 @@ def weapon_class(cls, key, msg):
                 if t:
                     ele.append([ATTR_NAME[base + t], abs(s8(v)) * 10, 1 if s8(v) < 0 else 0])
                     ele_mask |= 1 << (base + t - 1)
+                    if s8(v) < 0:
+                        awk_mask |= 1 << (base + t - 1)
             st['ele'] = ele
             length = 150 + 50 * b[9]
             bars = [sharp_bar(b[8], length), sharp_bar(b[8], min(length + 50, 450))]
@@ -230,7 +232,7 @@ def weapon_class(cls, key, msg):
         if rec:
             mats_create[i] = rec
         entries.append([i, name, rar, par if par is not None else 0, order.get(i, 0), ele_mask,
-                        [attack, aff, dfn, slots], cx])
+                        [attack, aff, dfn, slots], cx, awk_mask])
     return label, mult100, entries, stats, mats_create
 
 

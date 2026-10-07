@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MH3U Collection Tracker</title>
 <link rel="icon" type="image/png" href="assets/icons/icon_armor_chest_r1.png">
-<link rel="stylesheet" href="styles.css?v=2">
+<link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
 <div id="app">
@@ -54,6 +54,11 @@
           <div class="filter-group" id="elementGroup">
             <div class="filter-label">Element</div>
             <select id="elementSelect" class="mini-select"></select>
+            <select id="awkSelect" class="mini-select awk-select" title="Elements and status that only appear with the Awaken skill">
+              <option value="all">Any (natural or Awaken)</option>
+              <option value="natural">Natural element</option>
+              <option value="awaken">Needs Awaken</option>
+            </select>
           </div>
           <div class="filter-group" id="weaponStatGroup">
             <div class="filter-label">Weapon stats</div>
@@ -320,6 +325,15 @@
     </div>
 
     <div class="set-section">
+      <div class="set-title">Skills</div>
+      <div class="set-row">
+        <div class="set-label">I use the Awaken skill
+          <span class="set-hint">Elements that need Awaken show plainly and count for the Element filter. Off, they show the game's way, in parentheses, and are left out of it.</span></div>
+        <button type="button" class="toggle" id="awakenToggle" role="switch" aria-checked="false" aria-label="I use the Awaken skill"></button>
+      </div>
+    </div>
+
+    <div class="set-section">
       <div class="set-title">Theme</div>
       <div id="swatches" class="swatches"></div>
     </div>
@@ -340,7 +354,7 @@
 <!-- Toast -->
 <div id="toast" class="toast hidden"></div>
 
-<script src="data/catalog.js?v=1"></script>
-<script src="app.js?v=4"></script>
+<script src="data/catalog.js?v=2"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>
