@@ -347,6 +347,12 @@ def armor_slot(typ, key, msg):
 
 
 # ── Icons and rarity colours ─────────────────────────────────────────────
+# Player weapon icons (the slim class silhouettes the game shows beside a hunter, the 3U counterpart
+# of the 4U tracker's class icons): READ 0x51b438 -- u8 0xb91510[weapon class] picks a 16 px cell in
+# row 0 of td_icon01_ID (order: SnS, GS, LS, Lance, Hammer, light / medium / heavy bowgun, SA, DB,
+# HH, GL, Bow). Used for the sidebar's weapon categories.
+CLASS_ICON_TEX = os.path.join(EXTRACT, 'arcx', 'arc', 'ID', 'ID_lb_eng', 'GUI', 'Texture', 'common', 'td_icon01_ID.tex')
+CLASS_ICON_CELL = 0xb91510
 ICON_BY_TYPE = 0xb9154e   # READ 0x51d6cc: u8 icon index per item type; atlas cell = (index % 10, index // 10), 22 px
 RARE_COLOURS = 0xcb986c   # READ 0x51d5dc: ten RGBA name colours, built at boot (.bss)
 
@@ -395,6 +401,17 @@ def write_icons(colours):
         img[..., :3] *= [c / 255 for c in rgb]
         Image.fromarray(img.clip(0, 255).astype(np.uint8)).resize((48, 48), Image.NEAREST).save(
             os.path.join(ndir, 'note_%d.png' % code))
+    # Player weapon icons, one per class, in the same rarity tints as the item icons.
+    sheet, _ = pica_tex.decode(open(CLASS_ICON_TEX, 'rb').read())
+    for cls, slug, _ in CLASSES:
+        x = CODE[CLASS_ICON_CELL - BASE + cls] * 16
+        cell = sheet[0:16, x:x + 16].astype(np.float32)
+        for k, hexc in enumerate([None] + colours):
+            img = cell.copy()
+            if hexc:
+                img[..., :3] *= [int(hexc[j:j + 2], 16) / 255 for j in (1, 3, 5)]
+            Image.fromarray(img.clip(0, 255).astype(np.uint8)).resize((48, 48), Image.NEAREST).save(
+                os.path.join(out, 'class_%s%s.png' % (slug, '_r%d' % k if k else '')))
     for slug, typ in types.items():
         idx = CODE[ICON_BY_TYPE - BASE + typ]
         x, y = idx % 10 * 22, idx // 10 * 22

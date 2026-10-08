@@ -183,6 +183,11 @@
   // ── Helpers ────────────────────────────────────────────────────────────
   const escapeHtml = s => String(s).replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
   const iconPath = (slug, r) => `assets/icons/icon_${slug}${r >= 1 && r <= 10 ? "_r" + r : ""}.png`;
+  // A category's own icon: weapon classes use the game's player weapon icons (the slim class
+  // silhouettes shown beside a hunter, td_icon01_ID row 0 via 0xb91510 — the 3U counterpart of the
+  // 4U tracker's class icons); armor slots keep the item icons.
+  const catIconPath = (c, r) => c.kind === "w"
+    ? `assets/icons/class_${c.key}${r >= 1 && r <= 10 ? "_r" + r : ""}.png` : iconPath(c.iconSlug, r);
   const fmtNum = n => n.toLocaleString("en-US");
   const slotsText = n => "◯".repeat(n) + "―".repeat(Math.max(0, 3 - n));
 
@@ -428,7 +433,7 @@
       const n = catOwnedCount(c), d = catTotal(c), tier = categoryTier(c);
       row.querySelector(".cat-frac").textContent = `${n}/${d}`;
       row.classList.toggle("complete", n === d && d > 0);
-      const img = row.querySelector("img"); if (img) img.src = iconPath(c.iconSlug, tier);
+      const img = row.querySelector("img"); if (img) img.src = catIconPath(c, tier);
       const nameEl = row.querySelector(".cat-name"); if (nameEl) nameEl.style.color = RARITY_COLORS[tier - 1];
     }
     const n = catOwnedCount(current), d = catTotal(current);
@@ -453,7 +458,7 @@
       for (const c of g.cats) {
         const row = document.createElement("div");
         row.className = "cat-row"; row.dataset.cat = catId(c);
-        row.innerHTML = `<img src="${iconPath(c.iconSlug, 1)}" alt="">
+        row.innerHTML = `<img src="${catIconPath(c, 1)}" alt="">
           <span class="cat-name">${escapeHtml(c.label)}</span>
           <span class="cat-frac"></span>`;
         row.addEventListener("click", () => selectCategory(c));
@@ -865,7 +870,7 @@
         const cid = catId(c);
         pending.set(cid, merge.size ? merge : "Nothing outstanding — everything shown is already owned.");
         rows.push(`<div class="mat-view-row totals-row${merge.size ? "" : " complete"}" data-cat="${cid}">
-          <div class="mat-view-head"><img class="list-icon" src="${iconPath(c.iconSlug, 1)}" alt="">
+          <div class="mat-view-head"><img class="list-icon" src="${catIconPath(c, 1)}" alt="">
             <span class="list-name">${escapeHtml(c.label)}</span>
             <span class="list-rar">${pieces} ${pieces === 1 ? "piece" : "pieces"} · ${fmtNum(units)} items</span>
             <span class="totals-chev">▾</span></div>
