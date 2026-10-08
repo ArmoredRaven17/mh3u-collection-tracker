@@ -458,7 +458,7 @@
       for (const c of g.cats) {
         const row = document.createElement("div");
         row.className = "cat-row"; row.dataset.cat = catId(c);
-        row.innerHTML = `<img src="${catIconPath(c, 1)}" alt="">
+        row.innerHTML = `<img${c.kind === "w" ? ' class="cls-ico"' : ""} src="${catIconPath(c, 1)}" alt="">
           <span class="cat-name">${escapeHtml(c.label)}</span>
           <span class="cat-frac"></span>`;
         row.addEventListener("click", () => selectCategory(c));
@@ -870,7 +870,7 @@
         const cid = catId(c);
         pending.set(cid, merge.size ? merge : "Nothing outstanding — everything shown is already owned.");
         rows.push(`<div class="mat-view-row totals-row${merge.size ? "" : " complete"}" data-cat="${cid}">
-          <div class="mat-view-head"><img class="list-icon" src="${catIconPath(c, 1)}" alt="">
+          <div class="mat-view-head"><img class="list-icon${c.kind === "w" ? " cls-ico" : ""}" src="${catIconPath(c, 1)}" alt="">
             <span class="list-name">${escapeHtml(c.label)}</span>
             <span class="list-rar">${pieces} ${pieces === 1 ? "piece" : "pieces"} · ${fmtNum(units)} items</span>
             <span class="totals-chev">▾</span></div>
@@ -1811,6 +1811,20 @@
       setDetailWidth(panel.getBoundingClientRect().width, false);
     });
   })();
+
+  // ── Pixel-exact class icons ─────────────────────────────────────────────
+  // The player weapon icons are 16 px pixel art and ship at that size. Drawn at an arbitrary CSS
+  // size they land on a fractional number of device pixels (20px on a 1.5x display is 30 device
+  // px for 16 art px), and nearest-neighbour then doubles some rows and not others. So each one is
+  // sized to a whole multiple of 16 DEVICE pixels, as close as possible to its nominal CSS size.
+  function fitClassIcons() {
+    const dpr = window.devicePixelRatio || 1;
+    const fit = nominal => Math.max(1, Math.round(nominal * dpr / 16)) * 16 / dpr;
+    document.documentElement.style.setProperty("--cls-px", fit(20) + "px");
+    document.documentElement.style.setProperty("--cls-list-px", fit(34) + "px");
+  }
+  fitClassIcons();
+  window.addEventListener("resize", fitClassIcons);   // browser zoom changes devicePixelRatio and fires this
 
   // ── Modals ─────────────────────────────────────────────────────────────
   function bindModal(btnId, modalId, closeId) {

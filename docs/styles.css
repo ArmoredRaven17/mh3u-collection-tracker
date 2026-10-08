@@ -516,3 +516,7 @@ body.resizing-detail{cursor:col-resize;user-select:none}
 .skill-list .stat-row .k{opacity:1}
 .skill-list .stat-row .v{font-weight:600}
 .skill-list .stat-row .v.neg{color:#ff8a8a}
+/* Player weapon icons: 16 px pixel art, sized by app.js (fitClassIcons) to a whole number of
+   device pixels per art pixel so every pixel doubles evenly. */
+.cat-row img.cls-ico{width:var(--cls-px,20px);height:var(--cls-px,20px);image-rendering:pixelated}
+.list-icon.cls-ico{width:var(--cls-list-px,32px);height:var(--cls-list-px,32px);image-rendering:pixelated}
