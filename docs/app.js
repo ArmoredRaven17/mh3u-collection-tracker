@@ -1306,15 +1306,18 @@
       + (s.aff ? row("Affinity", (s.aff > 0 ? "+" : "") + s.aff + "%") : row("Affinity", "0%"));
     // Element / status: name in its game colour, the displayed value, then the true value (displayed
     // / 10). The game parenthesises one that needs Awaken until the skill is active; so does this.
-    const eleName = e => `<span class="ele-name" style="color:${ELE_COLOURS[e[0]] || "inherit"}">${escapeHtml(e[0])}</span>`;
+    // The name AND its number take the element's colour; one that needs Awaken is parenthesised (but
+    // keeps its full colour) until the skill is on — in the displayed row and the true row alike.
+    const eleText = (e, val) => {
+      const t = `<span class="ele-name" style="color:${ELE_COLOURS[e[0]] || "inherit"}">${escapeHtml(e[0])} ${val}</span>`;
+      return e[2] && !settings.awaken ? `<span class="ele-awk" title="Needs the Awaken skill">(${t})</span>` : t;
+    };
     if (s.ele) {
       h += `<div class="stat-row"><span class="k">Element</span><span class="v">${s.ele.length
-        ? s.ele.map(e => e[2] && !settings.awaken
-            ? `<span class="ele-awk" title="Needs the Awaken skill">(${eleName(e)} ${e[1]})</span>`
-            : `${eleName(e)} ${e[1]}`).join(" / ") : "—"}</span></div>`;
+        ? s.ele.map(e => eleText(e, e[1])).join(" / ") : "—"}</span></div>`;
       if (s.ele.length && s.ele[0][3] != null)
         h += `<div class="stat-row stat-sub"><span class="k">True Element</span><span class="v">${
-          s.ele.map(e => `${eleName(e)} ${e[3]}`).join(" / ")}</span></div>`;
+          s.ele.map(e => eleText(e, e[3])).join(" / ")}</span></div>`;
     }
     if (s.def) h += row("Defense", "+" + s.def);
     h += row("Slots", slotsText(s.slots || 0));
