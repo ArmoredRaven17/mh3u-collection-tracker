@@ -520,3 +520,7 @@ body.resizing-detail{cursor:col-resize;user-select:none}
    device pixels per art pixel so every pixel doubles evenly. */
 .cat-row img.cls-ico{width:var(--cls-px,20px);height:var(--cls-px,20px);image-rendering:pixelated}
 .list-icon.cls-ico{width:var(--cls-list-px,32px);height:var(--cls-list-px,32px);image-rendering:pixelated}
+/* True Raw / True Element sit under their displayed value, indented and quieter. */
+.stat-row.stat-sub .k{padding-left:12px;font-size:12px}
+.stat-row.stat-sub .v{opacity:.8;font-size:12px}
+.ele-name{font-weight:600}

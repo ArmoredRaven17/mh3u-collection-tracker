@@ -9,7 +9,7 @@
   // Bump whenever docs/data/ is regenerated. The JSON files are fetched at runtime,
   // so without this a browser holding a cached copy runs new code against old data —
   // which fails silently, as wrong numbers rather than an error.
-  const DATA_VERSION = "5";
+  const DATA_VERSION = "6";
   const APP_TITLE = "MH3U Collection Tracker";
   const SAVE_APP = "mh3u-collection-tracker";
   const SAVE_VERSION = 1;
@@ -25,7 +25,8 @@
   const SHARP_LABELS = C.labels.sharp;
   const SHARP_MAX = 450;               // the game's full bar (0x8d2f70 caps max sharpness at 0x1c2)
   const RES_NAMES = ["Fire", "Water", "Thndr", "Ice", "Drgn"];   // the status screen's order (Menu 401-405)
-  const RARITY_COLORS = C.rarityColors;   // the game's Rare 1-10 name colours (0xcb986c)
+  const RARITY_COLORS = C.rarityColors;
+  const ELE_COLOURS = C.labels.eleColours || {};   // the game's own element / status colours (build_data.py)   // the game's Rare 1-10 name colours (0xcb986c)
 
   // Theme palette: identical across the MH3U apps. Same 31 hexes as the MHGU family (each one
   // clears the white-text / white-checkbox contrast line — do not add one without checking it),
@@ -1298,13 +1299,23 @@
   function renderWeaponDetail(c, data, id) {
     const s = data.byId[String(id)];
     if (!s) return '<div class="detail-note">No detailed stats for this weapon.</div>';
+    // Attack as the game displays it (true raw x the class multiplier, 0x57bf40), then the true raw
+    // the record holds — the number damage is actually calculated from.
     let h = row("Attack", s.atk)
+      + (s.raw != null ? `<div class="stat-row stat-sub"><span class="k">True Raw</span><span class="v">${s.raw}</span></div>` : "")
       + (s.aff ? row("Affinity", (s.aff > 0 ? "+" : "") + s.aff + "%") : row("Affinity", "0%"));
-    // The game parenthesises an element that needs Awaken until the skill is active; so does this.
-    if (s.ele) h += `<div class="stat-row"><span class="k">Element</span><span class="v">${s.ele.length
-      ? s.ele.map(e => e[2] && !settings.awaken
-          ? `<span class="ele-awk" title="Needs the Awaken skill">(${escapeHtml(e[0])} ${e[1]})</span>`
-          : `${escapeHtml(e[0])} ${e[1]}`).join(" / ") : "—"}</span></div>`;
+    // Element / status: name in its game colour, the displayed value, then the true value (displayed
+    // / 10). The game parenthesises one that needs Awaken until the skill is active; so does this.
+    const eleName = e => `<span class="ele-name" style="color:${ELE_COLOURS[e[0]] || "inherit"}">${escapeHtml(e[0])}</span>`;
+    if (s.ele) {
+      h += `<div class="stat-row"><span class="k">Element</span><span class="v">${s.ele.length
+        ? s.ele.map(e => e[2] && !settings.awaken
+            ? `<span class="ele-awk" title="Needs the Awaken skill">(${eleName(e)} ${e[1]})</span>`
+            : `${eleName(e)} ${e[1]}`).join(" / ") : "—"}</span></div>`;
+      if (s.ele.length && s.ele[0][3] != null)
+        h += `<div class="stat-row stat-sub"><span class="k">True Element</span><span class="v">${
+          s.ele.map(e => `${eleName(e)} ${e[3]}`).join(" / ")}</span></div>`;
+    }
     if (s.def) h += row("Defense", "+" + s.def);
     h += row("Slots", slotsText(s.slots || 0));
     // Hunting Horn notes: [label, icon, colour] — the game's note glyph in the colour the HUD uses.

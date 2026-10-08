@@ -104,6 +104,15 @@ ARMOR_RECIPES = 0xc06b48   # per item type: the same 24-byte records keyed by ar
 # item name less " Coating" (C-Range = C.Range).
 ITEM_TABLE = 0xb92a78
 ITEM_PALETTE = 0xcb9964
+# Element / status colours: the game's own colour for each one's ammo or coating item (item table +5
+# -> ITEM_PALETTE). The game reuses colours across types -- Fire and Dragon share red, Thunder and
+# Paralysis yellow, Water and Sleep light blue. An element and a status sit in separate slots and the
+# name is always printed beside the colour, so the cross-type pairs are left as the game has them;
+# Fire and Dragon are not, so Dragon alone is given its own colour (DRAGON_COLOUR, not from the game).
+ELEMENT_ITEMS = {'Fire': 'Flaming S', 'Water': 'Water S', 'Thunder': 'Thunder S', 'Ice': 'Freeze S',
+                 'Dragon': 'Dragon S', 'Poison': 'Poison Coating', 'Paralysis': 'Para Coating',
+                 'Sleep': 'Sleep Coating', 'Slime': 'Slime Coating'}
+DRAGON_COLOUR = '#c77dda'
 COATING_ITEMS = {1: 'Power Coating', 2: 'Poison Coating', 3: 'Para Coating', 4: 'Sleep Coating',
                  5: 'C.Range Coating', 6: 'Paint Coating', 7: 'Exhaust Coating', 8: 'Slime Coating'}
 COATINGS = {bit: [MENU[502 + bit], 'coat_%d' % bit] for bit in COATING_ITEMS}
@@ -220,7 +229,7 @@ def weapon_class(cls, key, msg):
                 if t:
                     slime = t == 4 and struct.unpack_from('<I', b, 0x30)[0] & 0x2000
                     code = 9 if slime else t
-                    st['ele'] = [[ATTR_NAME[code], abs(s8(v)) * 10, 1 if s8(v) < 0 else 0]]
+                    st['ele'] = [[ATTR_NAME[code], abs(s8(v)) * 10, 1 if s8(v) < 0 else 0, abs(s8(v))]]
                     ele_mask |= 1 << (code - 1)
                     if s8(v) < 0:
                         awk_mask |= 1 << (code - 1)
@@ -239,7 +248,7 @@ def weapon_class(cls, key, msg):
             ele = []
             for t, v, base in ((b[0xe], b[0xf], 0), (b[0x10], b[0x11], 0), (b[0x12], b[0x13], 5)):
                 if t:
-                    ele.append([ATTR_NAME[base + t], abs(s8(v)) * 10, 1 if s8(v) < 0 else 0])
+                    ele.append([ATTR_NAME[base + t], abs(s8(v)) * 10, 1 if s8(v) < 0 else 0, abs(s8(v))])
                     ele_mask |= 1 << (base + t - 1)
                     if s8(v) < 0:
                         awk_mask |= 1 << (base + t - 1)
@@ -264,7 +273,8 @@ def weapon_class(cls, key, msg):
                 cx['p'] = b[0x15]
                 st['phial'] = PHIALS[b[0x15]] if b[0x15] < len(PHIALS) else '?'
         attack = atk * mult100 // 100
-        st.update(atk=attack, aff=aff, def_=dfn, slots=slots)
+        # atk = the displayed attack (true * class multiplier / 100, READ 0x57bf40); raw = the true raw stored in the record
+        st.update(atk=attack, raw=atk, aff=aff, def_=dfn, slots=slots)
         st['def'] = st.pop('def_')
         par = parent.get(i) if parent.get(i) in keep_set else None
         st['parent'] = par
@@ -451,6 +461,18 @@ def write_icons(colours):
             Image.fromarray(img.clip(0, 255).astype(np.uint8)).resize((44, 44), Image.NEAREST).save(os.path.join(out, name))
 
 
+def element_colours():
+    import mh3u_static_init as S
+    pal = S.run_all().raw(ITEM_PALETTE, 64)
+    ids = {n: i for i, n in enumerate(ITEMS)}
+    out = {}
+    for ele in ELEMENTS:
+        c = CODE[ITEM_TABLE - BASE + 20 * ids[ELEMENT_ITEMS[ele]] + 5]
+        out[ele] = '#%02x%02x%02x' % tuple(pal[4 * c:4 * c + 3])
+    out['Dragon'] = DRAGON_COLOUR
+    return out
+
+
 def dump(path, obj):
     with open(path, 'w', encoding='utf-8') as fh:
         json.dump(obj, fh, ensure_ascii=False, separators=(',', ':'))
@@ -474,7 +496,8 @@ def main():
     catalog = {'version': 1, 'rarityColors': colours,
                'labels': {'elements': ELEMENTS, 'phial': PHIALS, 'shell': GL_SHELLS, 'arc': ARCS,
                           'reload': RELOADS, 'recoil': RECOILS, 'deviation': DEVIATIONS,
-                          'notes': NOTE_COLOURS, 'sharp': ['Red', 'Orange', 'Yellow', 'Green', 'Blue', 'White', 'Purple']},
+                          'notes': NOTE_COLOURS, 'sharp': ['Red', 'Orange', 'Yellow', 'Green', 'Blue', 'White', 'Purple'],
+                          'eleColours': element_colours()},
                'weapons': {}, 'armor': {}}
     sd, md = os.path.join(DOCS, 'data', 'stats'), os.path.join(DOCS, 'data', 'materials')
     os.makedirs(sd, exist_ok=True)
