@@ -353,6 +353,64 @@ def armor_slot(typ, key, msg):
 # HH, GL, Bow). Used for the sidebar's weapon categories.
 CLASS_ICON_TEX = os.path.join(EXTRACT, 'arcx', 'arc', 'ID', 'ID_lb_eng', 'GUI', 'Texture', 'common', 'td_icon01_ID.tex')
 CLASS_ICON_CELL = 0xb91510
+# The same 13 icons, in the same order, are also the first glyphs of the icon font (GUIont\icon:
+# font_icon.gfd puts glyph 'A' + n at x = 14 * n, 14x14). That copy is LA4 -- uncompressed 4-bit
+# grey -- while td_icon01_ID is ETC1A4, whose block compression smears green noise into the busy
+# ones (HBG, SA). So the build takes the font copy and CLEANS it -- this is the one place the
+# tracker's art is edited rather than copied: alpha snapped to on/off at 128 (Lance, Hammer, the
+# bowguns and SA are scaled-down art with 33-55% half-transparent edge pixels), a 1px black outline
+# added where a light pixel meets transparency, and the grey shading reduced to 4 levels. The cell
+# choice is still the game's own table.
+CLASS_ICON_FONT = os.path.join(EXTRACT, 'arcx', 'arc', 'ID', 'ID_lb_eng', 'GUI', 'font', 'icon', 'font_icon_00_GSM_NOMIP.tex')
+
+
+def decode_la4(d):
+    """TEX v0xA5 format 16 (LA4: one byte per texel, luminance << 4 | alpha), PICA200 8x8 tiles,
+    texels in Morton order, memory row 0 at the top."""
+    import numpy as np
+    w2, w3 = struct.unpack_from('<II', d, 8)
+    mips, w, h = w2 & 0x3F, (w2 >> 6) & 0x1FFF, (w2 >> 19) & 0x1FFF
+    assert (w3 >> 8) & 0xFF == 16, 'not LA4'
+    off = 16 + 4 * mips
+    morton = [((i >> 1) & 1 | (i >> 2) & 2 | (i >> 3) & 4) * 8 + ((i & 1) | (i >> 1) & 2 | (i >> 2) & 4)
+              for i in range(64)]
+    img = np.zeros((h, w, 4), np.uint8)
+    p = off
+    for ty in range(h // 8):
+        for tx in range(w // 8):
+            for i in range(64):
+                v = d[p + i]
+                y, x = divmod(morton[i], 8)
+                lum, a = (v >> 4) * 17, (v & 15) * 17
+                img[ty * 8 + y, tx * 8 + x] = (lum, lum, lum, a)
+            p += 64
+    return img
+
+
+def clean_class_icon(g):
+    """14x14 LA4 glyph -> 16x16 crisp pixel art (see CLASS_ICON_FONT)."""
+    import numpy as np
+    g = g.astype(np.int32)
+    solid = g[..., 3] >= 128
+    out = np.zeros((14, 14, 4), np.int32)
+    out[solid] = g[solid]
+    out[solid, 3] = 255
+    light = solid & (out[..., 0] > 60)
+    edge = np.zeros_like(solid)
+    for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+        sh = np.zeros_like(light)
+        sh[max(0, dy):14 + min(0, dy), max(0, dx):14 + min(0, dx)] =             light[max(0, -dy):14 + min(0, -dy), max(0, -dx):14 + min(0, -dx)]
+        edge |= sh
+    edge &= ~solid
+    out[edge] = (0, 0, 0, 255)
+    levels = np.array([0, 96, 176, 255])
+    q = levels[np.abs(out[..., 0][..., None] - levels).argmin(-1)]
+    on = out[..., 3] > 0
+    for c in range(3):
+        out[..., c] = np.where(on, q, 0)
+    pad = np.zeros((16, 16, 4), np.uint8)
+    pad[1:15, 1:15] = out
+    return pad
 ICON_BY_TYPE = 0xb9154e   # READ 0x51d6cc: u8 icon index per item type; atlas cell = (index % 10, index // 10), 22 px
 RARE_COLOURS = 0xcb986c   # READ 0x51d5dc: ten RGBA name colours, built at boot (.bss)
 
@@ -402,10 +460,10 @@ def write_icons(colours):
         Image.fromarray(img.clip(0, 255).astype(np.uint8)).resize((48, 48), Image.NEAREST).save(
             os.path.join(ndir, 'note_%d.png' % code))
     # Player weapon icons, one per class, in the same rarity tints as the item icons.
-    sheet, _ = pica_tex.decode(open(CLASS_ICON_TEX, 'rb').read())
+    font = decode_la4(open(CLASS_ICON_FONT, 'rb').read())
     for cls, slug, _ in CLASSES:
-        x = CODE[CLASS_ICON_CELL - BASE + cls] * 16
-        cell = sheet[0:16, x:x + 16].astype(np.float32)
+        x = CODE[CLASS_ICON_CELL - BASE + cls] * 14
+        cell = clean_class_icon(font[0:14, x:x + 14]).astype(np.float32)
         for k, hexc in enumerate([None] + colours):
             img = cell.copy()
             if hexc:
