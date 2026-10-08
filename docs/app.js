@@ -1359,7 +1359,10 @@
     let h = `${row("Defense", `${s.def[0]} – ${s.def[1]}`)}${row("Slots", slotsText(s.slots || 0))}`;
     h += resGridHtml(s.res);
     if (s.sk && s.sk.length)
-      h += `<div class="detail-section-title">Skills</div>${chips(s.sk.map(k => `${k[0]} ${k[1] > 0 ? "+" + k[1] : k[1]}`))}`;
+      // One skill per row, like the stats above: tree on the left, points on the right.
+      h += `<div class="detail-section-title">Skills</div><div class="skill-list">${s.sk.map(([tree, pts]) =>
+        `<div class="stat-row"><span class="k">${escapeHtml(tree)}</span><span class="v${pts < 0 ? " neg" : ""}">${
+          pts > 0 ? "+" + pts : pts}</span></div>`).join("")}</div>`;
     // Per-level defense, as the game computes it (0x8943fc). Only defense changes with level.
     if (s.lv && s.lv.length > 1) {
       const rows = s.lv.map((def, i) => {
