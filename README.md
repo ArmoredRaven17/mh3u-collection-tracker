@@ -7,7 +7,7 @@ armor piece, with an "owned" checkbox, full stats, crafting recipes and the upgr
 
 ## Features
 
-- All 12 weapon classes (1,415 weapons) and all five armor slots (1,605 pieces), Blademaster and
+- All 12 weapon classes (1,395 weapons) and all five armor slots (1,605 pieces), Blademaster and
   Gunner.
 - Click a cell to see stats: attack, affinity, element/status (with Awaken), sharpness (base and
   Sharpness +1), slots, Hunting Horn notes, Gunlance shelling, Switch Axe phials, bow charges, arc
