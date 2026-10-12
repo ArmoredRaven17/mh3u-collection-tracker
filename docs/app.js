@@ -1336,10 +1336,11 @@
         ${sharpBarHtml(s.sh[sharpBand])}`;
     }
     // Songs: every melody this horn's three notes can play, in the game's own song order, with what
-    // it does. Each entry is [[indices into the horn's notes], effect].
+    // it does. Each entry is [[indices into the horn's notes], effect]. The game's table (0xba54ea)
+    // stores each melody last note first, so it is reversed here into playing order.
     if (s.songs && s.songs.length) h += `<div class="detail-section-title">Songs</div>
       <table class="lvl-table song-table"><tbody>${s.songs.map(([seq, effect]) => `<tr>
-        <td class="song-notes">${seq.map(i => noteImg(s.notes[i])).join("")}</td>
+        <td class="song-notes">${seq.slice().reverse().map(i => noteImg(s.notes[i])).join("")}</td>
         <td>${escapeHtml(effect)}</td></tr>`).join("")}</tbody></table>`;
     // Charges are an ordered set, so they are numbered: charge 1 is the one you fire from a
     // standing start. In 3U the 4th only exists with Load Up (0x8e0c68), so it carries the tag.
