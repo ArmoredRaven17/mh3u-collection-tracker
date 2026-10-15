@@ -95,12 +95,14 @@ AMMO_FIRST_ITEM = 93     # bowgun ammo slot i = item 93 + i (Normal S Lv1 ...); 
 UPGRADE_TABLES = 0xc06bb4  # per class: 0x1c-byte records indexed by weapon id: 4 x (item, qty) to upgrade INTO it,
                            # then 6 x u16 weapons it upgrades into
 CREATE_TABLES = 0xc06b64   # per class: 24-byte records {u16, u16 weapon id, 4 x (item, qty), u32}
-# Polishing a shard at the smithy, READ 0x898b0c: for item 0x3ec (Rustshard) or 0x3ed (Ancient Shard)
-# it rolls 0-99 and walks that shard's table -- 12-byte entries {u32 item type (7 + class), u32
+# Appraising a shard, READ 0x898b0c: the reward-appraisal loop (0x898a54, over the 40 reward slots;
+# the game's word is "Appraise" -- Result 23, Help 571 "Appraise any unappraised items", "Getting a
+# Rustshard appraised..."). For item 0x3ec (Rustshard) or 0x3ed (Ancient Shard) it rolls 0-99 and
+# walks that shard's table -- 12-byte entries {u32 item type (7 + class), u32
 # weapon id, u32 weight}, ended by type 0xff, weights summing to 100 -- until the running weight
 # passes the roll. A weapon's chance is its weight in %. The Rusted / Worn weapons (and Demon's /
 # God's Isle) come only from here; the other entries are weapons the smithy also makes.
-POLISH_TABLES = {1004: 0xc41b80, 1005: 0xc41c58}
+APPRAISE_TABLES = {1004: 0xc41b80, 1005: 0xc41c58}
 ARMOR_RECIPES = 0xc06b48   # per item type: the same 24-byte records keyed by armour id
 
 # Bow coatings: bit n of +0x30 = Menu 502 + n (Power, Poison, Paralysis, Sleep, C-Range, Paint,
@@ -193,10 +195,10 @@ def recipes(table_va, count, max_id):
     return out
 
 
-def polish_sources():
-    """(item type, weapon id) -> [[shard item name, chance %]], from the shard polish tables."""
+def appraise_sources():
+    """(item type, weapon id) -> [[shard item name, chance %]], from the shard appraisal tables."""
     out = {}
-    for item, va in POLISH_TABLES.items():
+    for item, va in APPRAISE_TABLES.items():
         for k in range(32):
             typ, wid, weight = struct.unpack_from('<3I', CODE, va - BASE + 12 * k)
             if typ == 0xff:
@@ -205,7 +207,7 @@ def polish_sources():
     return out
 
 
-POLISH = None
+APPRAISE = None
 
 
 def table_count(ptr_table, n, here):
@@ -357,11 +359,11 @@ def weapon_class(cls, key, msg):
             rec['d'] = create[i]
         if par is not None and upgrade.get(i):
             rec['f'] = [par, None, upgrade[i]]
-        global POLISH
-        if POLISH is None:
-            POLISH = polish_sources()
-        if (7 + cls, i) in POLISH:
-            rec['p'] = POLISH[(7 + cls, i)]      # [[shard, chance %]]
+        global APPRAISE
+        if APPRAISE is None:
+            APPRAISE = appraise_sources()
+        if (7 + cls, i) in APPRAISE:
+            rec['p'] = APPRAISE[(7 + cls, i)]    # appraising a shard: [[shard, chance %]]
         if rec:
             mats_create[i] = rec
         entries.append([i, name, rar, par if par is not None else 0, order.get(i, 0), ele_mask,

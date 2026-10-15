@@ -653,10 +653,11 @@
   // own (or plan to build) the weapon it upgrades from, else its create recipe, else the upgrade
   // plus the cost of making its parent — walking up until something is owned, targeted or craftable.
   const coveredOf = (c, id) => isOwned(c, id) || isTargeted(c, id);
-  // Polishing a shard at the smithy (`p`: [[shard, chance %]]) is a weighted random draw, READ
+  // Appraising a shard among the quest rewards (`p`: [[shard, chance %]]) is a weighted random draw, READ
   // 0x898b0c (build_data.py): one shard per try, and the weapon comes out that % of the time.
-  const polishText = (cr, mats) => cr.p.map(([s, pct]) => `polish a ${mats[s]} (${pct}% chance)`).join(" or ");
-  const polishPairs = cr => cr.p ? [[cr.p[0][0], 1]] : [];
+  const aOrAn = w => (/^[AEIOU]/i.test(w) ? "an " : "a ") + w;   // "an Ancient Shard"
+  const appraiseText = (cr, mats) => cr.p.map(([s, pct]) => `obtained by appraising ${aOrAn(mats[s])} (${pct}% chance)`).join(" or ");
+  const appraisePairs = cr => cr.p ? [[cr.p[0][0], 1]] : [];
   function weaponBuildCost(data, c, id, seen, isRoot) {
     const map = new Map(), notes = [];
     if (!data || seen.has(id)) return { map, notes };
@@ -664,9 +665,9 @@
     if (isRoot ? isOwned(c, id) : coveredOf(c, id)) return { map, notes };
     const cr = (data.create || {})[String(id)];
     if (!cr) { notes.push("No create or upgrade recipe in the game's tables."); return { map, notes }; }
-    if (!cr.d && !cr.f && cr.p) {     // only from polishing
-      addPairs(map, polishPairs(cr), data.mats);
-      notes.push(polishText(cr, data.mats));
+    if (!cr.d && !cr.f && cr.p) {     // only from appraising a shard
+      addPairs(map, appraisePairs(cr), data.mats);
+      notes.push(appraiseText(cr, data.mats));
       return { map, notes };
     }
     if (cr.f && coveredOf(c, cr.f[0])) {
@@ -721,7 +722,7 @@
     if (c.kind === "a") return armorCost(c, it.id, data, Math.max(1, maxLevelOf(c, it.id)));
     if (isOwned(c, it.id)) return sum;
     const cr = (data.create || {})[String(it.id)];
-    if (cr) addPairs(sum, cr.f ? cr.f[2] : cr.d || polishPairs(cr), data.mats);
+    if (cr) addPairs(sum, cr.f ? cr.f[2] : cr.d || appraisePairs(cr), data.mats);
     return sum;
   };
 
@@ -758,7 +759,7 @@
       else if (c.kind === "w") bodyHtml = cr.f
         ? `<div class="mat-step">Upgrade from ${escapeHtml(weaponName(c, cr.f[0]))}</div>${matPairsHtml(cr.f[2], data.mats)}`
         : cr.d ? `<div class="mat-step">Create</div>${matPairsHtml(cr.d, data.mats)}`
-        : `<div class="mat-step">Polish (random)</div><div class="detail-note">${escapeHtml(polishText(cr, data.mats))}</div>`;
+        : `<div class="mat-step">Obtain</div><div class="detail-note">${escapeHtml(appraiseText(cr, data.mats))}</div>`;
       else bodyHtml = matPairsHtml(cr, data.mats);
     }
     return `<div class="mat-view-row${complete ? " complete" : ""}" data-id="${id}" data-cat="${c.kind}:${c.key}" title="${escapeHtml(it.name)}">
@@ -804,7 +805,7 @@
       tag = '<span class="route-tag">no recipe in the game\'s tables</span>';
     } else if (!cr.d && !cr.f && cr.p) {
       direct = no; base = no; branch = dash;
-      tag = `<span class="route-tag">${escapeHtml(polishText(cr, data.mats))}</span>`;
+      tag = `<span class="route-tag">${escapeHtml(appraiseText(cr, data.mats))}</span>`;
     } else {
       direct = cr.d ? yes : no;
       base = !cr.d && cr.f
@@ -1446,9 +1447,10 @@
     else if (c.kind === "w") {
       if (cr.d) h += `<div class="mat-step">Create</div>${matPairsHtml(cr.d, data.mats)}`;
       if (cr.f) h += `<div class="mat-step">${cr.d ? "Or upgrade" : "Upgrade"} from ${escapeHtml(weaponName(c, cr.f[0]))}</div>${matPairsHtml(cr.f[2], data.mats)}`;
-      // Polishing a shard can also turn this weapon up, at random (READ 0x898b0c).
-      if (cr.p) h += `<div class="mat-step">${cr.d || cr.f ? "Or polish" : "Polish"} (random)</div>${
-        cr.p.map(([sh, pct]) => `<div class="detail-note">1× ${escapeHtml(data.mats[sh])} — ${pct}% chance</div>`).join("")}`;
+      // Appraising a shard can also turn this weapon up, at random (READ 0x898b0c).
+      // Not a recipe -- the weapon is obtained, from a shard the game appraises.
+      if (cr.p) h += `<div class="mat-step">${cr.d || cr.f ? "Or obtain" : "Obtain"}</div>${
+        cr.p.map(([sh, pct]) => `<div class="detail-note">Appraise ${escapeHtml(aOrAn(data.mats[sh]))} — ${pct}% chance</div>`).join("")}`;
     } else {
       h += `<div class="mat-step">Create</div>${matPairsHtml(cr, data.mats)}`;
     }
