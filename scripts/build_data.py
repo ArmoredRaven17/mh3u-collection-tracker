@@ -217,10 +217,15 @@ def weapon_class(cls, key, msg):
             if cls == 10:
                 cx['a'] = b[0x17]
                 st['arc'] = ARCS[b[0x17]] if b[0x17] < 3 else None
-                # Charges: Menu 487 + code; the 4th (index 3) only with Load Up -- READ 0x8e0c68
-                # caps the charge index at 3 with skill 0xac (Load Up), else 2.
-                st['charges'] = [[MENU[487 + c], 1 if k == 3 else 0]
-                                 for k, c in enumerate(struct.unpack_from('<4I', b, 0x1c)) if c < 15]
+                # Charges: Menu 487 + code. How many the bow can reach is set by its record +7, READ
+                # 0x8e0c48: 4 -> all four, no skill needed; 2 -> two, or three with Load Up (skill
+                # 0xac); anything else -> three, or four with Load Up. Shipping bows carry 3 (108) or
+                # 4 (8: Lithe Saberbow, Fallenfriede, Rafalga Sandraider, the three Arca bows, Megiddo
+                # Phoenix, The Rysurrection), so those eight have a natural 4th charge.
+                cap, cap_lu = {4: (3, 3), 2: (1, 2)}.get(b[7], (2, 3))
+                st['charges'] = [[MENU[487 + c], 1 if k > cap else 0]
+                                 for k, c in enumerate(struct.unpack_from('<4I', b, 0x1c))
+                                 if c < 15 and k <= cap_lu]
                 st['coatings'] = [COATINGS[bit] for bit in range(1, 9) if b[0x30] >> bit & 1]
                 # One attribute: +0x14 code, +0x15 s8 value / 10 (negative = Awaken), READ 0x57d770.
                 # Code 4 is Dragon, except with bit 0x2000 of the u32 at +0x30 set it is Slime

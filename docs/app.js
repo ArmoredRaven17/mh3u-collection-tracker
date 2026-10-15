@@ -9,7 +9,7 @@
   // Bump whenever docs/data/ is regenerated. The JSON files are fetched at runtime,
   // so without this a browser holding a cached copy runs new code against old data —
   // which fails silently, as wrong numbers rather than an error.
-  const DATA_VERSION = "6";
+  const DATA_VERSION = "7";
   const APP_TITLE = "MH3U Collection Tracker";
   const SAVE_APP = "mh3u-collection-tracker";
   const SAVE_VERSION = 1;
@@ -1343,7 +1343,8 @@
         <td class="song-notes">${seq.slice().reverse().map(i => noteImg(s.notes[i])).join("")}</td>
         <td>${escapeHtml(effect)}</td></tr>`).join("")}</tbody></table>`;
     // Charges are an ordered set, so they are numbered: charge 1 is the one you fire from a
-    // standing start. In 3U the 4th only exists with Load Up (0x8e0c68), so it carries the tag.
+    // standing start. A charge the bow only reaches with Load Up carries the tag: the 4th on most
+    // bows, none on the eight whose record +7 grants all four (0x8e0c48, build_data.py).
     if (s.charges && s.charges.length) h += `<div class="detail-section-title">Charges</div>
       <ol class="charge-list">${s.charges.map(([shot, loadUp]) => {
         const col = shotCol(shot);
