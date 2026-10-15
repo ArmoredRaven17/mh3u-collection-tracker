@@ -271,7 +271,7 @@ def weapon_class(cls, key, msg):
                 st['arc'] = ARCS[b[0x17]] if b[0x17] < 3 else None
                 # Charges: Menu 487 + code. How many the bow can reach is set by its record +7, READ
                 # 0x8e0c48: 4 -> all four, no skill needed; 2 -> two, or three with Load Up (skill
-                # 0xac); anything else -> three, or four with Load Up. Shipping bows carry 3 (108) or
+                # 0xac); anything else -> three, or four with Load Up. Shipping bows carry 3 (107) or
                 # 4 (8: Lithe Saberbow, Fallenfriede, Rafalga Sandraider, the three Arca bows, Megiddo
                 # Phoenix, The Rysurrection), so those eight have a natural 4th charge.
                 cap, cap_lu = {4: (3, 3), 2: (1, 2)}.get(b[7], (2, 3))
