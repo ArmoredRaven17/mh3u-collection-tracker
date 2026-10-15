@@ -9,7 +9,7 @@
   // Bump whenever docs/data/ is regenerated. The JSON files are fetched at runtime,
   // so without this a browser holding a cached copy runs new code against old data —
   // which fails silently, as wrong numbers rather than an error.
-  const DATA_VERSION = "7";
+  const DATA_VERSION = "8";
   const APP_TITLE = "MH3U Collection Tracker";
   const SAVE_APP = "mh3u-collection-tracker";
   const SAVE_VERSION = 1;
@@ -659,7 +659,7 @@
     seen.add(id);
     if (isRoot ? isOwned(c, id) : coveredOf(c, id)) return { map, notes };
     const cr = (data.create || {})[String(id)];
-    if (!cr) { notes.push("No recipe (event / reward weapon)."); return { map, notes }; }
+    if (!cr) { notes.push("No create or upgrade recipe in the game's tables."); return { map, notes }; }
     if (cr.f && coveredOf(c, cr.f[0])) {
       addPairs(map, cr.f[2], data.mats);
       notes.push(`upgraded from ${weaponName(c, cr.f[0])}`);
@@ -745,7 +745,7 @@
     else if (!data) bodyHtml = '<div class="detail-note">No material data.</div>';
     else {
       const cr = (data.create || {})[String(id)];
-      if (!cr) bodyHtml = '<div class="detail-note">No recipe (event / reward).</div>';
+      if (!cr) bodyHtml = `<div class="detail-note">No create or upgrade recipe in the game's tables.</div>`;
       else if (c.kind === "w") bodyHtml = cr.f
         ? `<div class="mat-step">Upgrade from ${escapeHtml(weaponName(c, cr.f[0]))}</div>${matPairsHtml(cr.f[2], data.mats)}`
         : `<div class="mat-step">Create</div>${matPairsHtml(cr.d, data.mats)}`;
@@ -1351,13 +1351,24 @@
         return `<li><span class="charge-shot"${col ? ` style="color:${col}"` : ""}>${escapeHtml(shot)}</span>${
           loadUp ? '<span class="lu-tag">Load Up</span>' : ""}</li>`;
       }).join("")}</ol>`;
-    // Coatings: [label, icon, colour] — the coating item's own bottle icon and colour from the game.
+    // Coatings: [label, icon, colour, boosted] — the coating item's own bottle icon and colour from the
+    // game, and whether this bow boosts it (record +0x30 bit per type, READ 0x1f27f4; build_data.py).
     if (s.coatings && s.coatings.length) h += `<div class="detail-section-title">Coatings</div><div class="chip-list">${
-      s.coatings.map(([label, icon, col]) => `<span class="chip coat" style="color:${col};border-color:${col}55"><img
-        src="assets/coatings/${icon}.png" alt="">${escapeHtml(label)}</span>`).join("")}</div>`;
+      s.coatings.map(([label, icon, col, boost]) => `<span class="chip coat" style="color:${col};border-color:${col}55"${
+        boost ? ' title="Boosted coating"' : ""}><img src="assets/coatings/${icon}.png" alt="">${escapeHtml(label)}${
+        boost ? '<span class="lu-tag">Boost</span>' : ""}</span>`).join("")}</div>`;
     if (s.ammo && s.ammo.length)
       h += `<div class="detail-section-title">Ammo</div><table class="lvl-table ammo-table"><tbody>${s.ammo.map(([n, cap]) =>
         `<tr><td>${escapeHtml(n)}</td><td class="num">${cap}</td></tr>`).join("")}</tbody></table>`;
+    // Light Bowgun rapid fire: [ammo, shots per trigger pull] (READ 0x8edc80).
+    if (s.rapid && s.rapid.length)
+      h += `<div class="detail-section-title">Rapid Fire</div><table class="lvl-table ammo-table"><tbody>${s.rapid.map(([n, shots]) =>
+        `<tr><td>${escapeHtml(n)}</td><td class="num">${shots} shots</td></tr>`).join("")}</tbody></table>`;
+    // Heavy Bowgun crouching fire: [ammo, carry limit] — it fires straight from the pouch, so the
+    // count is the ammo item's own carry limit; null = Normal S Lv1, which is unlimited.
+    if (s.crouch && s.crouch.length)
+      h += `<div class="detail-section-title">Crouching Fire</div><table class="lvl-table ammo-table"><tbody>${s.crouch.map(([n, cap]) =>
+        `<tr><td>${escapeHtml(n)}</td><td class="num">${cap == null ? "∞" : cap}</td></tr>`).join("")}</tbody></table>`;
     if (s.parent || (s.children && s.children.length)) {
       h += `<div class="detail-section-title">Upgrade tree</div>`;
       if (s.parent) h += `<div class="tree-row"><span class="k">Upgrades from</span> ${treeLinks(c, [s.parent])}</div>`;

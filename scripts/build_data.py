@@ -116,6 +116,20 @@ DRAGON_COLOUR = '#c77dda'
 COATING_ITEMS = {1: 'Power Coating', 2: 'Poison Coating', 3: 'Para Coating', 4: 'Sleep Coating',
                  5: 'C.Range Coating', 6: 'Paint Coating', 7: 'Exhaust Coating', 8: 'Slime Coating'}
 COATINGS = {bit: [MENU[502 + bit], 'coat_%d' % bit] for bit in COATING_ITEMS}
+# Coatings are bits of the u32 at +0x30 -- Slime (bit 8) is in its second byte. A coating can also be
+# BOOSTED, READ 0x1f27f4: given a coating type it tests the same word (with +0x34, zero on every bow)
+# for Poison 0x200, Para 0x400, Sleep 0x800, Exhaust 0x1000, Slime 0x4000 (jump table at 0x1f2824 over
+# type - 2); Power, C-Range and Paint have no boost. The shot code branches on it (0x9ec174, Para).
+# 0x2000 is not a boost: it is the Slime-element flag below.
+COATING_BOOST = {2: 0x200, 3: 0x400, 4: 0x800, 7: 0x1000, 8: 0x4000}
+# Bowgun special fire, the five u32 at +0x1c..+0x2c (on a bow the same words are its charges).
+# Light Bowgun rapid fire, READ 0x8edc80: each word indexes RAPID_TABLE (4-byte entries: ammo slot,
+# shots, two bytes not yet read); 0 ends the list. Heavy Bowgun crouching fire: each word is an ammo
+# slot directly; 0xffffffff ends the list. Crouching fire fires from the pouch, and the count Kiranico
+# shows for it is exactly each ammo item's carry limit (item record +3; 1 = Normal S Lv1, unlimited) on
+# every HBG -- so that is what ships beside it. The 0xff-terminated walker itself is not yet read.
+RAPID_TABLE = 0xba3b48
+SLIME_S_ITEM = 1247      # ammo slot 42's item (see ammo_name)
 
 PROFILES = [struct.unpack_from('<7I', CODE, SHARP_TABLE - BASE + 28 * i) for i in range(91)]
 
@@ -127,6 +141,13 @@ def ammo_name(slot):
     if slot == 42:
         return BOWGUN_MES[71] + ' S'
     return ITEMS[AMMO_FIRST_ITEM + slot]
+
+
+def ammo_carry(slot):
+    """The ammo item's carry limit (item record +3), the count crouching fire can shoot; None = unlimited."""
+    item = SLIME_S_ITEM if slot == 42 else AMMO_FIRST_ITEM + slot
+    carry = CODE[ITEM_TABLE - BASE + 20 * item + 3]
+    return None if carry == 1 and slot == 0 else carry
 
 
 def sharp_bar(profile, length):
@@ -213,7 +234,10 @@ def weapon_class(cls, key, msg):
         ele_mask = awk_mask = 0     # every element/status it carries; the ones that need Awaken
         if cls in GUNNER:
             atk = struct.unpack_from('<H', b, 4)[0]
-            aff, dfn, slots = 0, 0, b[0x11]
+            # Affinity +0x12 s8: the hunter's affinity routine reads it for item types 0xb/0xd/0x11
+            # (HBG/LBG/Bow) through the gunner getter 0x895594 (READ 0x8cde54; status screen 0x91b324),
+            # where melee reads +0xd. Defense +6 (READ 0x581d34, beside melee +0xc at 0x581d1c).
+            aff, dfn, slots = s8(b[0x12]), b[6], b[0x11]
             if cls == 10:
                 cx['a'] = b[0x17]
                 st['arc'] = ARCS[b[0x17]] if b[0x17] < 3 else None
@@ -226,7 +250,10 @@ def weapon_class(cls, key, msg):
                 st['charges'] = [[MENU[487 + c], 1 if k > cap else 0]
                                  for k, c in enumerate(struct.unpack_from('<4I', b, 0x1c))
                                  if c < 15 and k <= cap_lu]
-                st['coatings'] = [COATINGS[bit] for bit in range(1, 9) if b[0x30] >> bit & 1]
+                cw = struct.unpack_from('<I', b, 0x30)[0] | struct.unpack_from('<I', b, 0x34)[0]
+                # [label, icon, colour, boosted]
+                st['coatings'] = [COATINGS[bit] + [1 if cw & COATING_BOOST.get(bit, 0) else 0]
+                                  for bit in range(1, 9) if cw >> bit & 1]
                 # One attribute: +0x14 code, +0x15 s8 value / 10 (negative = Awaken), READ 0x57d770.
                 # Code 4 is Dragon, except with bit 0x2000 of the u32 at +0x30 set it is Slime
                 # (READ 0x57d81c, 0x57fea0 -- the Dios and Kelbi bows).
@@ -247,6 +274,20 @@ def weapon_class(cls, key, msg):
                 st.update(reload=RELOADS[rl], recoil=RECOILS[rc], deviation=DEVIATIONS[b[0x10]] if b[0x10] < 7 else '?')
                 st['ammo'] = [[ammo_name(s), b[0x38 + s]] for s in range(44)
                               if b[0x30 + s // 8] >> (s % 8) & 1 and b[0x38 + s]]
+                special = struct.unpack_from('<5I', b, 0x1c)
+                if cls == 6:     # rapid fire: [ammo, shots]
+                    st['rapid'] = []
+                    for x in special:
+                        if not x:
+                            break
+                        e = raw(RAPID_TABLE + 4 * x, 4)
+                        st['rapid'].append([ammo_name(e[0]), e[1]])
+                else:            # crouching fire: [ammo, carry limit or None = unlimited]
+                    st['crouch'] = []
+                    for x in special:
+                        if x == 0xffffffff:
+                            break
+                        st['crouch'].append([ammo_name(x), ammo_carry(x)])
         else:
             atk = struct.unpack_from('<H', b, 0xa)[0]
             aff, dfn, slots = s8(b[0xd]), b[0xc], b[0x14]
