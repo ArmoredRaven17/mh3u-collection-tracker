@@ -95,6 +95,12 @@ AMMO_FIRST_ITEM = 93     # bowgun ammo slot i = item 93 + i (Normal S Lv1 ...); 
 UPGRADE_TABLES = 0xc06bb4  # per class: 0x1c-byte records indexed by weapon id: 4 x (item, qty) to upgrade INTO it,
                            # then 6 x u16 weapons it upgrades into
 CREATE_TABLES = 0xc06b64   # per class: 24-byte records {u16, u16 weapon id, 4 x (item, qty), u32}
+# Polishing a shard at the smithy, READ 0x898b0c: for item 0x3ec (Rustshard) or 0x3ed (Ancient Shard)
+# it rolls 0-99 and walks that shard's table -- 12-byte entries {u32 item type (7 + class), u32
+# weapon id, u32 weight}, ended by type 0xff, weights summing to 100 -- until the running weight
+# passes the roll. A weapon's chance is its weight in %. The Rusted / Worn weapons (and Demon's /
+# God's Isle) come only from here; the other entries are weapons the smithy also makes.
+POLISH_TABLES = {1004: 0xc41b80, 1005: 0xc41c58}
 ARMOR_RECIPES = 0xc06b48   # per item type: the same 24-byte records keyed by armour id
 
 # Bow coatings: bit n of +0x30 = Menu 502 + n (Power, Poison, Paralysis, Sleep, C-Range, Paint,
@@ -124,11 +130,16 @@ COATINGS = {bit: [MENU[502 + bit], 'coat_%d' % bit] for bit in COATING_ITEMS}
 COATING_BOOST = {2: 0x200, 3: 0x400, 4: 0x800, 7: 0x1000, 8: 0x4000}
 # Bowgun special fire, the five u32 at +0x1c..+0x2c (on a bow the same words are its charges).
 # Light Bowgun rapid fire, READ 0x8edc80: each word indexes RAPID_TABLE (4-byte entries: ammo slot,
-# shots, two bytes not yet read); 0 ends the list. Heavy Bowgun crouching fire: each word is an ammo
+# shots, power %, wait); 0 ends the list. Wait 1-4, READ 0x917a80: for an ammo the gun rapid-fires
+# it returns wait + 3 (4-7) in place of the normal recoil reaction (0-2) -- one of four rapid-fire
+# reactions, the S / M / L / XL that MHGU's data labels "wait". Power is 60/70/80/90/100, exactly
+# MHGU's rapid-fire power set; its consumer isn't read yet. Entry for entry the table matches MHGU's
+# values for the same ammo (Normal S Lv1 5 x 80% S, Pellet S Lv1 3 x 80% M, Clust S Lv1 2 x 70% XL). Heavy Bowgun crouching fire: each word is an ammo
 # slot directly; 0xffffffff ends the list. Crouching fire fires from the pouch, and the count Kiranico
 # shows for it is exactly each ammo item's carry limit (item record +3; 1 = Normal S Lv1, unlimited) on
 # every HBG -- so that is what ships beside it. The 0xff-terminated walker itself is not yet read.
 RAPID_TABLE = 0xba3b48
+RAPID_WAITS = {1: 'S', 2: 'M', 3: 'L', 4: 'XL'}
 SLIME_S_ITEM = 1247      # ammo slot 42's item (see ammo_name)
 
 PROFILES = [struct.unpack_from('<7I', CODE, SHARP_TABLE - BASE + 28 * i) for i in range(91)]
@@ -180,6 +191,21 @@ def recipes(table_va, count, max_id):
         if tid and m:
             out.setdefault(tid, m)
     return out
+
+
+def polish_sources():
+    """(item type, weapon id) -> [[shard item name, chance %]], from the shard polish tables."""
+    out = {}
+    for item, va in POLISH_TABLES.items():
+        for k in range(32):
+            typ, wid, weight = struct.unpack_from('<3I', CODE, va - BASE + 12 * k)
+            if typ == 0xff:
+                break
+            out.setdefault((typ, wid), []).append([ITEMS[item], weight])
+    return out
+
+
+POLISH = None
 
 
 def table_count(ptr_table, n, here):
@@ -275,13 +301,13 @@ def weapon_class(cls, key, msg):
                 st['ammo'] = [[ammo_name(s), b[0x38 + s]] for s in range(44)
                               if b[0x30 + s // 8] >> (s % 8) & 1 and b[0x38 + s]]
                 special = struct.unpack_from('<5I', b, 0x1c)
-                if cls == 6:     # rapid fire: [ammo, shots]
+                if cls == 6:     # rapid fire: [ammo, shots, power %, wait]
                     st['rapid'] = []
                     for x in special:
                         if not x:
                             break
                         e = raw(RAPID_TABLE + 4 * x, 4)
-                        st['rapid'].append([ammo_name(e[0]), e[1]])
+                        st['rapid'].append([ammo_name(e[0]), e[1], e[2], RAPID_WAITS.get(e[3], '?')])
                 else:            # crouching fire: [ammo, carry limit or None = unlimited]
                     st['crouch'] = []
                     for x in special:
@@ -331,6 +357,11 @@ def weapon_class(cls, key, msg):
             rec['d'] = create[i]
         if par is not None and upgrade.get(i):
             rec['f'] = [par, None, upgrade[i]]
+        global POLISH
+        if POLISH is None:
+            POLISH = polish_sources()
+        if (7 + cls, i) in POLISH:
+            rec['p'] = POLISH[(7 + cls, i)]      # [[shard, chance %]]
         if rec:
             mats_create[i] = rec
         entries.append([i, name, rar, par if par is not None else 0, order.get(i, 0), ele_mask,
